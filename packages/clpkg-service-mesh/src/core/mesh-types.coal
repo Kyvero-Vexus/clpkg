@@ -1,0 +1,130 @@
+module Core.MeshTypes
+  ( Protocol(..)
+  , ServiceEndpoint(..)
+  , HealthCheckPolicy(..)
+  , HealthCheckType(..)
+  , LoadBalancerPolicy(..)
+  , CircuitBreakerState(..)
+  , CircuitBreakerConfig(..)
+  , RetryPolicy(..)
+  , RetryBackoff(..)
+  , MtlsConfig(..)
+  , MtlsMode(..)
+  , ProxyConfig(..)
+  , ProxySidecar(..)
+  , TrafficPolicy(..)
+  , MeshResult(..)
+  , endpoint-healthy-p
+  , circuit-open-p
+  , max-retries
+  , mtls-enabled-p
+  ) where
+
+-- Service mesh control plane domain types.
+-- Total constructors throughout.
+
+-- | Network protocol
+data Protocol
+  = HTTP
+  | HTTPS
+  | GRPC
+  | TCP
+
+-- | Service endpoint
+data ServiceEndpoint
+  = ServiceEndpoint String String Int Protocol Bool Int
+  -- name host port protocol healthy weight
+
+-- | Health check type
+data HealthCheckType
+  = HttpHealthCheck String Int  -- path expectedStatus
+  | TcpHealthCheck
+  | GrpcHealthCheck
+
+-- | Health check policy
+data HealthCheckPolicy
+  = HealthCheckPolicy HealthCheckType Int Int Int
+  -- type intervalMs timeoutMs unhealthyThreshold
+
+-- | Load balancer policy
+data LoadBalancerPolicy
+  = RoundRobin
+  | LeastConnections
+  | Random
+  | WeightedRoundRobin
+  | ConsistentHash String  -- headerName
+
+-- | Circuit breaker state
+data CircuitBreakerState
+  = Closed
+  | Open Int        -- openedAtMs
+  | HalfOpen Int    -- trialRequests
+
+-- | Circuit breaker config
+data CircuitBreakerConfig
+  = CircuitBreakerConfig Int Int Int Int
+  -- maxRequests failureThreshold successThreshold timeoutMs
+
+-- | Retry backoff strategy
+data RetryBackoff
+  = ConstantBackoff Int       -- delayMs
+  | ExponentialBackoff Int Int -- baseMs maxMs
+  | NoBackoff
+
+-- | Retry policy
+data RetryPolicy
+  = RetryPolicy Int RetryBackoff (List Int)
+  -- maxRetries backoff retryableStatusCodes
+
+-- | mTLS mode
+data MtlsMode
+  = Strict
+  | Permissive
+  | Disabled
+
+-- | mTLS configuration
+data MtlsConfig
+  = MtlsConfig MtlsMode String String String
+  -- mode caCertPath certPath keyPath
+
+-- | Proxy sidecar config
+data ProxySidecar
+  = ProxySidecar String Int Int Int
+  -- name inboundPort outboundPort adminPort
+
+-- | Proxy configuration
+data ProxyConfig
+  = ProxyConfig ProxySidecar (List ServiceEndpoint) LoadBalancerPolicy
+                CircuitBreakerConfig RetryPolicy MtlsConfig
+  -- sidecar upstreams lb circuitBreaker retry mtls
+
+-- | Traffic policy
+data TrafficPolicy
+  = TrafficPolicy String Int Int  -- serviceName maxConnections rateLimit
+
+-- | Mesh operation result (total)
+data MeshResult a
+  = MeshOk a
+  | MeshErr String
+
+-- | Is endpoint healthy?
+endpoint-healthy-p :: ServiceEndpoint -> Bool
+endpoint-healthy-p (ServiceEndpoint _ _ _ _ healthy _) = healthy
+
+-- | Is circuit breaker open?
+circuit-open-p :: CircuitBreakerState -> Bool
+circuit-open-p state =
+  case state of
+    Open _ -> True
+    _      -> False
+
+-- | Get max retries from policy
+max-retries :: RetryPolicy -> Int
+max-retries (RetryPolicy n _ _) = n
+
+-- | Is mTLS enabled?
+mtls-enabled-p :: MtlsConfig -> Bool
+mtls-enabled-p (MtlsConfig mode _ _ _) =
+  case mode of
+    Disabled -> False
+    _        -> True

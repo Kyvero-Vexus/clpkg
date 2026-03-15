@@ -1,0 +1,50 @@
+module Core.EmailTypes
+  ( EmailProtocol(..)
+  , EmailAddress(..)
+  , EmailHeader(..)
+  , EmailBody(..)
+  , ContentType(..)
+  , Attachment(..)
+  , Email(..)
+  , Mailbox(..)
+  , MailboxType(..)
+  , FilterRule(..)
+  , FilterAction(..)
+  , SmtpConfig(..)
+  , ImapConfig(..)
+  , EmailResult(..)
+  , email-has-attachments
+  , mailbox-unread-count
+  , filter-matches-sender
+  , email-is-encrypted
+  ) where
+
+data EmailProtocol = IMAP | POP3 | SMTP | JMAP
+data EmailAddress = EmailAddress String String -- name address
+data ContentType = PlainText | Html | Multipart
+data EmailHeader = EmailHeader String (List EmailAddress) (List EmailAddress) (List EmailAddress) String Int
+  -- subject from to cc messageId timestamp
+data EmailBody = EmailBody ContentType String (List Attachment) -- contentType content attachments
+data Attachment = Attachment String String Int String -- filename mimeType sizeBytes contentId
+data Email = Email String EmailHeader EmailBody Bool Bool Bool
+  -- id header body read starred encrypted
+data MailboxType = Inbox | Sent | Drafts | Trash | Spam | Archive | CustomFolder String
+data Mailbox = Mailbox String MailboxType Int Int Int -- name mailboxType totalMessages unreadMessages sizeBytes
+data FilterAction = MoveTo String | MarkRead | Star | Delete | Forward String | Label String
+data FilterRule = FilterRule String String String FilterAction Bool -- name field pattern action enabled
+data SmtpConfig = SmtpConfig String Int Bool String -- host port tls authMethod
+data ImapConfig = ImapConfig String Int Bool Bool Int -- host port tls idle syncIntervalSecs
+data EmailResult a = EmailOk a | EmailErr String
+
+email-has-attachments :: Email -> Bool
+email-has-attachments (Email _ _ (EmailBody _ _ attachments) _ _ _) =
+  case attachments of Nil -> False; _ -> True
+
+mailbox-unread-count :: Mailbox -> Int
+mailbox-unread-count (Mailbox _ _ _ unread _) = unread
+
+filter-matches-sender :: FilterRule -> String -> Bool
+filter-matches-sender (FilterRule _ field _ _ _) _ = (== field "from")
+
+email-is-encrypted :: Email -> Bool
+email-is-encrypted (Email _ _ _ _ _ encrypted) = encrypted

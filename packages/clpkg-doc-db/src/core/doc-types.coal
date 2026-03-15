@@ -1,0 +1,138 @@
+module Core.DocTypes
+  ( JsonValue(..)
+  , Document(..)
+  , Collection(..)
+  , DocQuery(..)
+  , QueryOperator(..)
+  , SortOrder(..)
+  , SortField(..)
+  , Projection(..)
+  , DocIndex(..)
+  , IndexType(..)
+  , WriteResult(..)
+  , BulkOperation(..)
+  , ChangeEvent(..)
+  , DocResult(..)
+  , document-has-field
+  , collection-count
+  , query-has-filter
+  , sort-ascending-p
+  ) where
+
+-- Document database domain types.
+
+-- | JSON value (recursive)
+data JsonValue
+  = JString String
+  | JNumber Double
+  | JInt Int
+  | JBool Bool
+  | JNull
+  | JArray (List JsonValue)
+  | JObject (List (Tuple String JsonValue))
+
+-- | Document
+data Document
+  = Document String (List (Tuple String JsonValue)) Int
+  -- id fields versionStamp
+
+-- | Collection
+data Collection
+  = Collection String Int (List DocIndex) Bool
+  -- name documentCount indices capped
+
+-- | Query operator
+data QueryOperator
+  = Eq String JsonValue
+  | Ne String JsonValue
+  | Gt String JsonValue
+  | Lt String JsonValue
+  | Gte String JsonValue
+  | Lte String JsonValue
+  | In String (List JsonValue)
+  | Exists String Bool
+  | Regex String String
+  | And (List QueryOperator)
+  | Or (List QueryOperator)
+  | Not QueryOperator
+
+-- | Document query
+data DocQuery
+  = DocQuery String QueryOperator (Maybe Projection) (List SortField) Int Int
+  -- collection filter projection sort skip limit
+
+-- | Sort order
+data SortOrder
+  = Ascending
+  | Descending
+
+-- | Sort field
+data SortField
+  = SortField String SortOrder
+
+-- | Projection
+data Projection
+  = Include (List String)
+  | Exclude (List String)
+
+-- | Index type
+data IndexType
+  = SingleField
+  | Compound
+  | TextIndex
+  | GeoSpatial
+  | Hashed
+
+-- | Document index
+data DocIndex
+  = DocIndex String (List String) IndexType Bool Bool
+  -- name fields indexType unique sparse
+
+-- | Write result
+data WriteResult
+  = InsertResult String        -- insertedId
+  | UpdateResult Int Int       -- matchedCount modifiedCount
+  | DeleteResult Int           -- deletedCount
+  | UpsertResult String Bool   -- id wasInsert
+
+-- | Bulk operation
+data BulkOperation
+  = BulkInsert (List Document)
+  | BulkUpdate QueryOperator (List (Tuple String JsonValue))
+  | BulkDelete QueryOperator
+
+-- | Change event (for change streams)
+data ChangeEvent
+  = InsertEvent String Document Int     -- collection document timestamp
+  | UpdateEvent String String (List (Tuple String JsonValue)) Int
+  | DeleteEvent String String Int       -- collection documentId timestamp
+  | ReplaceEvent String Document Int
+
+-- | Document result (total)
+data DocResult a
+  = DocOk a
+  | DocErr String
+
+-- | Does document have a specific field?
+document-has-field :: Document -> String -> Bool
+document-has-field (Document _ fields _) fieldName =
+  case fields of
+    Nil -> False
+    Cons (Tuple k _) xs ->
+      if (== k fieldName) then True
+      else document-has-field (Document "" xs 0) fieldName
+
+-- | Document count in collection
+collection-count :: Collection -> Int
+collection-count (Collection _ count _ _) = count
+
+-- | Does query have a filter?
+query-has-filter :: DocQuery -> Bool
+query-has-filter _ = True  -- all queries have a filter by construction
+
+-- | Is sort ascending?
+sort-ascending-p :: SortField -> Bool
+sort-ascending-p (SortField _ order) =
+  case order of
+    Ascending -> True
+    Descending -> False

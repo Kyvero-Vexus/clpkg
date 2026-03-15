@@ -1,0 +1,106 @@
+module Core.SiemTypes
+  ( LogSource(..)
+  , LogSourceType(..)
+  , NormalizedEvent(..)
+  , EventCategory(..)
+  , DetectionRule(..)
+  , RuleLogic(..)
+  , AlertPriority(..)
+  , Alert(..)
+  , AlertStatus(..)
+  , CorrelationRule(..)
+  , Dashboard(..)
+  , DashboardWidget(..)
+  , WidgetType(..)
+  , SiemResult(..)
+  , event-is-security
+  , alert-active-p
+  , rule-matches-category
+  , dashboard-widget-count
+  ) where
+
+-- SIEM/alerting dashboard domain types.
+
+data LogSourceType = Syslog | WindowsEvent | CloudTrail | Firewall | Application | Custom String
+
+data LogSource
+  = LogSource String LogSourceType String Bool Int
+  -- name sourceType endpoint enabled eventsPerSecond
+
+data EventCategory
+  = Authentication
+  | Authorization
+  | NetworkTraffic
+  | FileAccess
+  | ProcessExecution
+  | SystemChange
+  | MalwareDetection
+  | DataExfiltration
+
+data NormalizedEvent
+  = NormalizedEvent String EventCategory String String Int String (List String)
+  -- id category source message timestamp sourceIp tags
+
+data RuleLogic
+  = PatternMatch String
+  | Threshold String Int Int   -- field count windowSeconds
+  | Sequence (List String) Int -- patterns windowSeconds
+  | Anomaly String Double      -- field deviationThreshold
+
+data DetectionRule
+  = DetectionRule String String RuleLogic AlertPriority Bool (List EventCategory)
+  -- id name logic priority enabled categories
+
+data AlertPriority = AlertP1 | AlertP2 | AlertP3 | AlertP4
+
+data AlertStatus
+  = AlertNew
+  | AlertAcknowledged String  -- acknowledgedBy
+  | AlertInvestigating String
+  | AlertFalsePositive
+  | AlertResolved String      -- resolvedBy
+
+data Alert
+  = Alert String String AlertPriority AlertStatus Int (List String)
+  -- id ruleId priority status createdAtUnix relatedEventIds
+
+data CorrelationRule
+  = CorrelationRule String (List String) Int String
+  -- name ruleIds windowSeconds outputAlertName
+
+data WidgetType = TimeSeriesChart | BarChart | PieChart | Table | Counter | Map
+
+data DashboardWidget
+  = DashboardWidget String WidgetType String Int Int
+  -- title widgetType query refreshIntervalSecs position
+
+data Dashboard
+  = Dashboard String String (List DashboardWidget) Bool
+  -- name description widgets shared
+
+data SiemResult a = SiemOk a | SiemErr String
+
+event-is-security :: NormalizedEvent -> Bool
+event-is-security (NormalizedEvent _ cat _ _ _ _ _) =
+  case cat of
+    MalwareDetection -> True
+    DataExfiltration -> True
+    _ -> False
+
+alert-active-p :: Alert -> Bool
+alert-active-p (Alert _ _ _ status _ _) =
+  case status of
+    AlertNew -> True
+    AlertAcknowledged _ -> True
+    AlertInvestigating _ -> True
+    _ -> False
+
+rule-matches-category :: DetectionRule -> EventCategory -> Bool
+rule-matches-category (DetectionRule _ _ _ _ _ cats) cat =
+  elem cat cats
+
+dashboard-widget-count :: Dashboard -> Int
+dashboard-widget-count (Dashboard _ _ widgets _) =
+  case widgets of
+    Nil -> 0
+    Cons _ xs -> (+ 1 (length xs))

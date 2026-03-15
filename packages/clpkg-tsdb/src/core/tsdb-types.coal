@@ -1,0 +1,126 @@
+module Core.TsdbTypes
+  ( TimeResolution(..)
+  , DataPoint(..)
+  , TimeSeries(..)
+  , AggregateFunction(..)
+  , AggregateResult(..)
+  , RetentionTier(..)
+  , DownsamplePolicy(..)
+  , QueryRange(..)
+  , TsQuery(..)
+  , WriteBuffer(..)
+  , CompactionState(..)
+  , ShardKey(..)
+  , TsdbConfig(..)
+  , TsdbResult(..)
+  , datapoint-in-range
+  , series-point-count
+  , retention-expired-p
+  , buffer-full-p
+  ) where
+
+-- Time-series database domain types.
+
+-- | Time resolution
+data TimeResolution
+  = Nanosecond
+  | Microsecond
+  | Millisecond
+  | Second
+  | Minute
+  | Hour
+
+-- | Data point
+data DataPoint
+  = DataPoint Int Double (List String)
+  -- timestamp value tags
+
+-- | Time series
+data TimeSeries
+  = TimeSeries String String (List DataPoint) (List String)
+  -- metric name points labels
+
+-- | Aggregate function
+data AggregateFunction
+  = Sum
+  | Avg
+  | Min
+  | Max
+  | Count
+  | Percentile Double  -- pct (0.0-100.0)
+  | Rate
+
+-- | Aggregate result
+data AggregateResult
+  = AggregateResult AggregateFunction Int Int Double
+  -- function startTs endTs value
+
+-- | Retention tier
+data RetentionTier
+  = RetentionTier String Int TimeResolution Int
+  -- name durationSeconds resolution maxPointsPerSeries
+
+-- | Downsample policy
+data DownsamplePolicy
+  = DownsamplePolicy TimeResolution TimeResolution AggregateFunction Int
+  -- sourceResolution targetResolution aggregation afterSeconds
+
+-- | Query range
+data QueryRange
+  = QueryRange Int Int Int
+  -- startTs endTs stepMs
+
+-- | Time-series query
+data TsQuery
+  = TsQuery String (List String) QueryRange (Maybe AggregateFunction)
+  -- metricName labelFilters range aggregation
+
+-- | Write buffer
+data WriteBuffer
+  = WriteBuffer Int Int Int Int
+  -- capacity currentSize flushIntervalMs lastFlushTs
+
+-- | Compaction state
+data CompactionState
+  = CompactionIdle
+  | CompactionRunning Int Int  -- startTs progress%
+  | CompactionComplete Int Int -- endTs bytesFreed
+  | CompactionFailed String
+
+-- | Shard key
+data ShardKey
+  = TimeShard Int Int    -- startTs endTs
+  | MetricShard String
+  | HashShard Int Int    -- shardId totalShards
+
+-- | TSDB configuration
+data TsdbConfig
+  = TsdbConfig String (List RetentionTier) (List DownsamplePolicy) Int Bool
+  -- dataDir retentionTiers downsamplePolicies walSizeMb compressionEnabled
+
+-- | TSDB result (total)
+data TsdbResult a
+  = TsdbOk a
+  | TsdbErr String
+
+-- | Is data point within range?
+datapoint-in-range :: DataPoint -> Int -> Int -> Bool
+datapoint-in-range (DataPoint ts _ _) start end =
+  (and (>= ts start) (<= ts end))
+
+-- | Count points in series
+series-point-count :: TimeSeries -> Int
+series-point-count (TimeSeries _ _ points _) =
+  case points of
+    Nil -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Is retention tier expired for given age?
+retention-expired-p :: RetentionTier -> Int -> Bool
+retention-expired-p (RetentionTier _ duration _ _) ageSeconds =
+  (> ageSeconds duration)
+
+-- | Is write buffer full?
+buffer-full-p :: WriteBuffer -> Bool
+buffer-full-p (WriteBuffer capacity current _ _) =
+  (>= current capacity)

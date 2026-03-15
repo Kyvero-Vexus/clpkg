@@ -1,0 +1,163 @@
+module Core.Formats
+  ( AudioFormat(..)
+  , SampleRate(..)
+  , BitDepth(..)
+  , ChannelLayout(..)
+  , SampleBuffer(..)
+  , AudioRegion(..)
+  , EffectType(..)
+  , EffectParam(..)
+  , EffectChain(..)
+  , WavFmtChunk(..)
+  , WavDataChunk(..)
+  , WavFile(..)
+  , FlacStreamInfo(..)
+  , FlacVorbisComment(..)
+  , FlacMetadata(..)
+  , OggPage(..)
+  , Mp3FrameHeader(..)
+  , ParseResult(..)
+  , sample-rate-hz
+  , bit-depth-bits
+  , buffer-duration-ms
+  , region-length-samples
+  ) where
+
+-- Core typed ADTs for audio editing.
+-- Total constructors throughout.
+
+-- | Audio format identifier
+data AudioFormat
+  = FormatWAV
+  | FormatFLAC
+  | FormatOGG
+  | FormatMP3
+  | FormatUnknown
+
+-- | Sample rate
+data SampleRate
+  = Sr8000
+  | Sr16000
+  | Sr22050
+  | Sr44100
+  | Sr48000
+  | Sr88200
+  | Sr96000
+  | SrCustom Int
+
+-- | Bit depth
+data BitDepth
+  = Bits8
+  | Bits16
+  | Bits24
+  | Bits32
+  | BitsFloat32
+
+-- | Channel layout
+data ChannelLayout
+  = Mono
+  | Stereo
+  | Surround51
+  | Surround71
+  | CustomChannels Int
+
+-- | Sample buffer (format-independent)
+data SampleBuffer
+  = SampleBuffer SampleRate BitDepth ChannelLayout Int
+  -- sampleRate bitDepth channels numSamples
+
+-- | Audio region (selection/clip reference)
+data AudioRegion
+  = AudioRegion Int Int Double  -- startSample endSample gainDb
+
+-- | Effect types
+data EffectType
+  = EqEffect
+  | CompressorEffect
+  | ReverbEffect
+  | DelayEffect
+  | GainEffect
+  | CustomEffect String
+
+-- | Effect parameter
+data EffectParam
+  = EffectParam String Double Double Double  -- name value min max
+
+-- | Effect chain
+data EffectChain
+  = EmptyChain
+  | ChainNode EffectType (List EffectParam) EffectChain
+
+-- | WAV format chunk
+data WavFmtChunk
+  = WavFmtChunk Int Int SampleRate BitDepth
+  -- audioFormat numChannels sampleRate bitsPerSample
+
+-- | WAV data chunk
+data WavDataChunk
+  = WavDataChunk Int (List Int)  -- size rawBytes
+
+-- | Complete WAV file
+data WavFile
+  = WavFile WavFmtChunk WavDataChunk
+
+-- | FLAC stream info block
+data FlacStreamInfo
+  = FlacStreamInfo Int Int SampleRate BitDepth Int Int
+  -- minBlockSize maxBlockSize sampleRate bitsPerSample totalSamples md5Length
+
+-- | FLAC vorbis comment
+data FlacVorbisComment
+  = FlacVorbisComment String (List String)  -- vendor comments
+
+-- | FLAC metadata collection
+data FlacMetadata
+  = FlacMetadata FlacStreamInfo (Maybe FlacVorbisComment)
+
+-- | OGG page structure
+data OggPage
+  = OggPage Int Int Int Bool Bool (List Int)
+  -- version serialNo pageNo isFirst isLast segments
+
+-- | MP3 frame header
+data Mp3FrameHeader
+  = Mp3FrameHeader Int Int SampleRate ChannelLayout Bool
+  -- mpegVersion layer sampleRate channelMode hasPadding
+
+-- | Parse result (total)
+data ParseResult a
+  = ParseOk a
+  | ParseErr String
+
+-- | Get sample rate in Hz
+sample-rate-hz :: SampleRate -> Int
+sample-rate-hz sr =
+  case sr of
+    Sr8000    -> 8000
+    Sr16000   -> 16000
+    Sr22050   -> 22050
+    Sr44100   -> 44100
+    Sr48000   -> 48000
+    Sr88200   -> 88200
+    Sr96000   -> 96000
+    SrCustom n -> n
+
+-- | Get bit depth in bits
+bit-depth-bits :: BitDepth -> Int
+bit-depth-bits bd =
+  case bd of
+    Bits8      -> 8
+    Bits16     -> 16
+    Bits24     -> 24
+    Bits32     -> 32
+    BitsFloat32 -> 32
+
+-- | Buffer duration in milliseconds
+buffer-duration-ms :: SampleBuffer -> Int
+buffer-duration-ms (SampleBuffer sr _ _ numSamples) =
+  (div (* numSamples 1000) (sample-rate-hz sr))
+
+-- | Region length in samples
+region-length-samples :: AudioRegion -> Int
+region-length-samples (AudioRegion start end _) =
+  (- end start)

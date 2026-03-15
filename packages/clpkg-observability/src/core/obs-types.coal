@@ -1,0 +1,149 @@
+module Core.ObsTypes
+  ( MetricType(..)
+  , MetricUnit(..)
+  , Metric(..)
+  , MetricPoint(..)
+  , SpanStatus(..)
+  , SpanContext(..)
+  , Span(..)
+  , LogLevel(..)
+  , LogEntry(..)
+  , HealthStatus(..)
+  , HealthCheck(..)
+  , AlertSeverity(..)
+  , AlertState(..)
+  , AlertRule(..)
+  , ObsResult(..)
+  , metric-is-counter
+  , span-duration-ms
+  , log-level-rank
+  , health-ok-p
+  , alert-firing-p
+  ) where
+
+-- Observability domain types.
+-- Total constructors throughout.
+
+-- | Metric types (OpenTelemetry-aligned)
+data MetricType
+  = Counter
+  | Gauge
+  | Histogram
+  | Summary
+
+-- | Metric unit
+data MetricUnit
+  = UnitSeconds
+  | UnitBytes
+  | UnitCount
+  | UnitPercent
+  | UnitCustom String
+
+-- | Metric definition
+data Metric
+  = Metric String MetricType MetricUnit String
+  -- name type unit description
+
+-- | Metric data point
+data MetricPoint
+  = MetricPoint String Double Int (List String)
+  -- metricName value timestamp labels
+
+-- | Span status
+data SpanStatus
+  = SpanOk
+  | SpanError String
+  | SpanUnset
+
+-- | Span context (trace propagation)
+data SpanContext
+  = SpanContext String String String  -- traceId spanId parentSpanId
+
+-- | Distributed trace span
+data Span
+  = Span String SpanContext SpanStatus Int Int (List String)
+  -- operationName context status startMs endMs attributes
+
+-- | Log levels
+data LogLevel
+  = Trace
+  | Debug
+  | Info
+  | Warn
+  | Error
+  | Fatal
+
+-- | Log entry
+data LogEntry
+  = LogEntry LogLevel String String Int (List String)
+  -- level message source timestamp attributes
+
+-- | Health check status
+data HealthStatus
+  = Healthy
+  | Degraded String
+  | Unhealthy String
+
+-- | Health check
+data HealthCheck
+  = HealthCheck String HealthStatus Int Int
+  -- componentName status lastCheckMs intervalMs
+
+-- | Alert severity
+data AlertSeverity
+  = Critical
+  | Warning
+  | Informational
+
+-- | Alert state
+data AlertState
+  = Pending
+  | Firing
+  | Resolved
+
+-- | Alert rule
+data AlertRule
+  = AlertRule String String AlertSeverity AlertState Int String
+  -- name condition severity state durationMs runbook
+
+-- | Observability operation result (total)
+data ObsResult a
+  = ObsOk a
+  | ObsErr String
+
+-- | Check if metric is a counter
+metric-is-counter :: Metric -> Bool
+metric-is-counter (Metric _ t _ _) =
+  case t of
+    Counter -> True
+    _       -> False
+
+-- | Span duration in ms
+span-duration-ms :: Span -> Int
+span-duration-ms (Span _ _ _ startMs endMs _) =
+  (- endMs startMs)
+
+-- | Log level numeric rank (for filtering)
+log-level-rank :: LogLevel -> Int
+log-level-rank lvl =
+  case lvl of
+    Trace -> 0
+    Debug -> 1
+    Info  -> 2
+    Warn  -> 3
+    Error -> 4
+    Fatal -> 5
+
+-- | Is health check OK?
+health-ok-p :: HealthCheck -> Bool
+health-ok-p (HealthCheck _ status _ _) =
+  case status of
+    Healthy -> True
+    _       -> False
+
+-- | Is alert currently firing?
+alert-firing-p :: AlertRule -> Bool
+alert-firing-p (AlertRule _ _ _ state _ _) =
+  case state of
+    Firing -> True
+    _      -> False

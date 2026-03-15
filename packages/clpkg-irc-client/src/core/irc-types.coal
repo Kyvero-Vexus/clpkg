@@ -1,0 +1,50 @@
+module Core.IrcTypes
+  ( IrcMessage(..)
+  , IrcCommand(..)
+  , IrcChannel(..)
+  , ChannelMode(..)
+  , UserMode(..)
+  , IrcUser(..)
+  , CtcpMessage(..)
+  , ServerInfo(..)
+  , CapabilityState(..)
+  , SaslMethod(..)
+  , ConnectionConfig(..)
+  , NickServAuth(..)
+  , BounceConfig(..)
+  , IrcResult(..)
+  , channel-is-moderated
+  , user-is-op
+  , capability-negotiated-p
+  , message-is-privmsg
+  ) where
+
+data IrcCommand = Privmsg | Notice | Join | Part | Quit | Nick | Mode | Kick | Topic | Ping | Pong | Cap | Authenticate | Numeric Int
+data IrcMessage = IrcMessage (Maybe String) IrcCommand (List String) -- prefix command params
+data ChannelMode = Moderated | InviteOnly | Secret | TopicLock | NoExternal | KeyRequired String | UserLimit Int
+data IrcChannel = IrcChannel String String (List ChannelMode) (List IrcUser) Int
+  -- name topic modes users createdAtUnix
+data UserMode = Op | Voice | HalfOp | Admin | Owner | Regular
+data IrcUser = IrcUser String String String UserMode Bool -- nick user host mode away
+data CtcpMessage = CtcpVersion | CtcpPing String | CtcpTime | CtcpAction String | CtcpSource
+data ServerInfo = ServerInfo String String Int (List String) -- hostname network maxChannels supportedModes
+data CapabilityState = CapRequested | CapAcknowledged | CapNakd | CapNotRequested
+data SaslMethod = SaslPlain | SaslExternal | SaslScram
+data ConnectionConfig = ConnectionConfig String Int Bool String (Maybe SaslMethod) (List String)
+  -- host port tls nick sasl autoJoinChannels
+data NickServAuth = NickServAuth String String Bool -- nick password autoIdentify
+data BounceConfig = BounceConfig String Int Bool Int -- host port tls bufferLines
+data IrcResult a = IrcOk a | IrcErr String
+
+channel-is-moderated :: IrcChannel -> Bool
+channel-is-moderated (IrcChannel _ _ modes _ _) = case modes of
+  Nil -> False; Cons Moderated _ -> True; Cons _ xs -> channel-is-moderated (IrcChannel "" "" xs Nil 0)
+
+user-is-op :: IrcUser -> Bool
+user-is-op (IrcUser _ _ _ mode _) = case mode of Op -> True; Admin -> True; Owner -> True; _ -> False
+
+capability-negotiated-p :: CapabilityState -> Bool
+capability-negotiated-p s = case s of CapAcknowledged -> True; _ -> False
+
+message-is-privmsg :: IrcMessage -> Bool
+message-is-privmsg (IrcMessage _ cmd _) = case cmd of Privmsg -> True; _ -> False

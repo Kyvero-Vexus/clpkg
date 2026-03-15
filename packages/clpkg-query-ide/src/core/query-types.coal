@@ -1,0 +1,127 @@
+module Core.QueryTypes
+  ( ColumnType(..)
+  , ColumnDef(..)
+  , ResultSet(..)
+  , QueryLanguage(..)
+  , Query(..)
+  , QueryStatus(..)
+  , ConnectionDriver(..)
+  , Connection(..)
+  , SchemaObject(..)
+  , SchemaInfo(..)
+  , PlanNode(..)
+  , ExecutionPlan(..)
+  , HistoryEntry(..)
+  , QueryResult(..)
+  , resultset-row-count
+  , query-is-readonly
+  , connection-active-p
+  , plan-estimated-cost
+  ) where
+
+-- Query IDE / database client domain types.
+
+-- | Column type
+data ColumnType
+  = ColInteger
+  | ColFloat
+  | ColText
+  | ColBoolean
+  | ColTimestamp
+  | ColBlob
+  | ColJson
+  | ColNull
+  | ColCustom String
+
+-- | Column definition
+data ColumnDef
+  = ColumnDef String ColumnType Bool Bool
+  -- name colType nullable primaryKey
+
+-- | Result set
+data ResultSet
+  = ResultSet (List ColumnDef) (List (List String)) Int Int
+  -- columns rows rowCount execTimeMs
+
+-- | Query language
+data QueryLanguage
+  = SQL
+  | SPARQL
+  | Cypher
+  | GraphQL
+  | CustomQL String
+
+-- | Query
+data Query
+  = Query String QueryLanguage String Bool Int
+  -- text language database readOnly timeoutMs
+
+-- | Query execution status
+data QueryStatus
+  = QsPending
+  | QsRunning Int       -- startedAtMs
+  | QsComplete Int      -- durationMs
+  | QsFailed String Int -- error durationMs
+  | QsCancelled
+
+-- | Database connection driver
+data ConnectionDriver
+  = PostgreSQL
+  | MySQL
+  | SQLite
+  | MongoDB
+  | Redis
+  | CustomDriver String
+
+-- | Connection
+data Connection
+  = Connection String ConnectionDriver String Int String Bool
+  -- name driver host port database connected
+
+-- | Schema object
+data SchemaObject
+  = TableObj String (List ColumnDef)
+  | ViewObj String String            -- name definition
+  | IndexObj String String String    -- name tableName columnName
+  | FunctionObj String String Int    -- name returnType argCount
+
+-- | Schema info
+data SchemaInfo
+  = SchemaInfo String (List SchemaObject) Int
+  -- schemaName objects lastRefreshedUnix
+
+-- | Query plan node
+data PlanNode
+  = PlanNode String Double Double (List PlanNode)
+  -- operation estimatedRows estimatedCost children
+
+-- | Execution plan
+data ExecutionPlan
+  = ExecutionPlan PlanNode Double Int
+  -- root totalCost planTimeMs
+
+-- | Query history entry
+data HistoryEntry
+  = HistoryEntry String Query QueryStatus Int Bool
+  -- id query status executedAtUnix bookmarked
+
+-- | Query operation result (total)
+data QueryResult a
+  = QueryOk a
+  | QueryErr String
+
+-- | Count rows in result set
+resultset-row-count :: ResultSet -> Int
+resultset-row-count (ResultSet _ _ count _) = count
+
+-- | Is query read-only?
+query-is-readonly :: Query -> Bool
+query-is-readonly (Query _ _ _ ro _) = ro
+
+-- | Is connection active?
+connection-active-p :: Connection -> Bool
+connection-active-p (Connection _ _ _ _ _ connected) = connected
+
+-- | Get estimated cost from execution plan
+plan-estimated-cost :: ExecutionPlan -> Double
+plan-estimated-cost (ExecutionPlan _ cost _) = cost

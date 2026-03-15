@@ -1,0 +1,100 @@
+module Core.Session
+  ( TrackType(..)
+  , Track(..)
+  , ClipRef(..)
+  , FadeCurve(..)
+  , Clip(..)
+  , AutomationPoint(..)
+  , AutomationLane(..)
+  , TimeSignature(..)
+  , TempoEntry(..)
+  , TempoMap(..)
+  , Session(..)
+  , SessionResult(..)
+  , track-count
+  , session-duration-bars
+  , clip-length-samples
+  ) where
+
+-- Core DAW session model.
+-- Total constructors throughout.
+
+-- | Track types
+data TrackType
+  = AudioTrack
+  | MidiTrack
+  | BusTrack
+  | AuxTrack
+  | MasterTrack
+
+-- | Track
+data Track
+  = Track String TrackType Int Bool (List Clip) (List AutomationLane)
+  -- name type index armed clips automationLanes
+
+-- | Clip reference (pointer into source audio)
+data ClipRef
+  = ClipRef String Int Int  -- sourceId startSample lengthSamples
+
+-- | Fade curve shape
+data FadeCurve
+  = LinearFade
+  | ExponentialFade
+  | SCurveFade
+  | NoFade
+
+-- | Clip on a track
+data Clip
+  = Clip String ClipRef Int FadeCurve FadeCurve Double
+  -- name ref positionSample fadeIn fadeOut gainDb
+
+-- | Automation breakpoint
+data AutomationPoint
+  = AutomationPoint Int Double  -- positionSample value
+
+-- | Automation lane
+data AutomationLane
+  = AutomationLane String String (List AutomationPoint)
+  -- parameterName targetId points
+
+-- | Time signature
+data TimeSignature
+  = TimeSignature Int Int  -- numerator denominator
+
+-- | Tempo entry
+data TempoEntry
+  = TempoEntry Int Double  -- barPosition bpm
+
+-- | Tempo map
+data TempoMap
+  = TempoMap TimeSignature (List TempoEntry)
+
+-- | Complete DAW session
+data Session
+  = Session String TempoMap (List Track) Int Int
+  -- name tempoMap tracks sampleRate bitDepth
+
+-- | Session operation result (total)
+data SessionResult a
+  = SessionOk a
+  | SessionErr String
+
+-- | Count tracks in session
+track-count :: Session -> Int
+track-count (Session _ _ tracks _ _) =
+  case tracks of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Session duration in bars (from tempo map)
+session-duration-bars :: Session -> Int
+session-duration-bars (Session _ (TempoMap _ entries) _ _ _) =
+  case entries of
+    Nil -> 0
+    _   -> let last-entry = (head (reverse entries))
+           in case last-entry of
+                TempoEntry bar _ -> bar
+
+-- | Clip length in samples
+clip-length-samples :: Clip -> Int
+clip-length-samples (Clip _ (ClipRef _ _ len) _ _ _ _) = len

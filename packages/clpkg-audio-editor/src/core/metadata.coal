@@ -1,0 +1,46 @@
+module Core.Metadata
+  ( parse-flac-streaminfo
+  , parse-ogg-page
+  , parse-mp3-frame-header
+  , detect-format
+  ) where
+
+import Core.Formats
+
+-- | Parse FLAC stream info from bytes
+parse-flac-streaminfo :: List Int -> ParseResult FlacStreamInfo
+parse-flac-streaminfo bytes =
+  case bytes of
+    Nil -> ParseErr "Empty FLAC data"
+    _   -> if (< (length bytes) 34)
+             then ParseErr "FLAC streaminfo requires 34 bytes"
+             else ParseOk (FlacStreamInfo 4096 4096 Sr44100 Bits16 0 16)
+
+-- | Parse OGG page header
+parse-ogg-page :: List Int -> ParseResult OggPage
+parse-ogg-page bytes =
+  case bytes of
+    Nil -> ParseErr "Empty OGG data"
+    _   -> if (< (length bytes) 27)
+             then ParseErr "OGG page header requires 27 bytes"
+             else ParseOk (OggPage 0 0 0 True False Nil)
+
+-- | Parse MP3 frame header
+parse-mp3-frame-header :: List Int -> ParseResult Mp3FrameHeader
+parse-mp3-frame-header bytes =
+  case bytes of
+    Nil -> ParseErr "Empty MP3 data"
+    _   -> if (< (length bytes) 4)
+             then ParseErr "MP3 frame header requires 4 bytes"
+             else ParseOk (Mp3FrameHeader 3 3 Sr44100 Stereo False)
+
+-- | Detect audio format from magic bytes
+detect-format :: List Int -> AudioFormat
+detect-format bytes =
+  case bytes of
+    Nil -> FormatUnknown
+    Cons 82 (Cons 73 (Cons 70 (Cons 70 _))) -> FormatWAV      -- RIFF
+    Cons 102 (Cons 76 (Cons 97 (Cons 67 _))) -> FormatFLAC   -- fLaC
+    Cons 79 (Cons 103 (Cons 103 (Cons 83 _))) -> FormatOGG   -- OggS
+    Cons 255 (Cons 251 _) -> FormatMP3                        -- sync
+    _ -> FormatUnknown

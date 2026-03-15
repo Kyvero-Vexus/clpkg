@@ -1,0 +1,126 @@
+module Core.CacheTypes
+  ( EvictionPolicy(..)
+  , CacheEntry(..)
+  , CacheStats(..)
+  , CacheConfig(..)
+  , CacheOperation(..)
+  , CacheEvent(..)
+  , TtlPolicy(..)
+  , PartitionStrategy(..)
+  , CachePartition(..)
+  , SerializationFormat(..)
+  , WarmupSource(..)
+  , CacheHealth(..)
+  , CacheResult(..)
+  , entry-expired-p
+  , hit-rate-pct
+  , cache-full-p
+  , partition-load-pct
+  ) where
+
+-- In-memory cache store domain types.
+
+-- | Eviction policy
+data EvictionPolicy
+  = LRU
+  | LFU
+  | FIFO
+  | Random
+  | TTLOnly
+
+-- | Cache entry
+data CacheEntry
+  = CacheEntry String String Int Int Int
+  -- key value createdAtMs lastAccessMs accessCount
+
+-- | Cache statistics
+data CacheStats
+  = CacheStats Int Int Int Int Int
+  -- hits misses evictions totalEntries sizeBytes
+
+-- | Cache configuration
+data CacheConfig
+  = CacheConfig Int Int EvictionPolicy TtlPolicy Bool
+  -- maxEntries maxSizeBytes evictionPolicy ttl statsEnabled
+
+-- | Cache operation
+data CacheOperation
+  = Get String
+  | Put String String
+  | Delete String
+  | Clear
+  | GetOrCompute String String  -- key computeFn
+
+-- | Cache event
+data CacheEvent
+  = CacheHit String Int        -- key latencyUs
+  | CacheMiss String Int
+  | CacheEviction String String -- key reason
+  | CacheExpiry String
+  | CacheError String String   -- operation error
+
+-- | TTL policy
+data TtlPolicy
+  = FixedTtl Int         -- ttlMs
+  | SlidingTtl Int       -- ttlMs (reset on access)
+  | NoTtl
+  | PerKeyTtl            -- TTL set per-key
+
+-- | Partition strategy
+data PartitionStrategy
+  = HashPartition Int     -- numPartitions
+  | RangePartition (List String) -- boundaries
+  | SinglePartition
+
+-- | Cache partition
+data CachePartition
+  = CachePartition Int Int Int Int
+  -- id entryCount sizeBytes maxSizeBytes
+
+-- | Serialization format
+data SerializationFormat
+  = JsonSerialization
+  | MsgpackSerialization
+  | RawBytes
+  | CustomSerialization String
+
+-- | Warmup source
+data WarmupSource
+  = FileWarmup String      -- path
+  | DatabaseWarmup String  -- query
+  | ApiWarmup String       -- endpoint
+  | NoWarmup
+
+-- | Cache health
+data CacheHealth
+  = Healthy
+  | Degraded String   -- reason
+  | Unhealthy String  -- reason
+
+-- | Cache result (total)
+data CacheResult a
+  = CacheOk a
+  | CacheErr String
+
+-- | Is entry expired?
+entry-expired-p :: CacheEntry -> Int -> Int -> Bool
+entry-expired-p (CacheEntry _ _ created _ _) nowMs ttlMs =
+  (> (- nowMs created) ttlMs)
+
+-- | Hit rate percentage
+hit-rate-pct :: CacheStats -> Int
+hit-rate-pct (CacheStats hits misses _ _ _) =
+  let total = (+ hits misses)
+  in if (== total 0) then 0
+     else (div (* hits 100) total)
+
+-- | Is cache at capacity?
+cache-full-p :: CacheConfig -> Int -> Bool
+cache-full-p (CacheConfig maxEntries _ _ _ _) currentEntries =
+  (>= currentEntries maxEntries)
+
+-- | Partition load percentage
+partition-load-pct :: CachePartition -> Int
+partition-load-pct (CachePartition _ _ size maxSize) =
+  if (== maxSize 0) then 0
+  else (div (* size 100) maxSize)

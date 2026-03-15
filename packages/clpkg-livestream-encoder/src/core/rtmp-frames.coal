@@ -1,0 +1,46 @@
+module Core.RtmpFrames
+  ( make-rtmp-chunk
+  , make-handshake-c0
+  , make-handshake-c1
+  , rtmp-chunk-header-size
+  , serialize-rtmp-chunk
+  ) where
+
+import Core.Protocols
+
+-- | Construct RTMP chunk with validation
+make-rtmp-chunk :: Int -> RtmpChunkType -> Int -> List Int -> FrameResult RtmpChunk
+make-rtmp-chunk csid chunkType timestamp payload =
+  if (< csid 2)
+    then FrameErr "CSID must be >= 2"
+    else if (< timestamp 0)
+      then FrameErr "Timestamp must be non-negative"
+      else FrameOk (RtmpChunk csid chunkType timestamp (length payload) payload)
+
+-- | Create C0 handshake (version byte)
+make-handshake-c0 :: Int -> FrameResult RtmpHandshake
+make-handshake-c0 version =
+  if (== version 3)
+    then FrameOk (C0 3)
+    else FrameErr "Only RTMP version 3 supported"
+
+-- | Create C1 handshake
+make-handshake-c1 :: Int -> List Int -> FrameResult RtmpHandshake
+make-handshake-c1 timestamp randomData =
+  if (/= (length randomData) 1528)
+    then FrameErr "C1 random data must be 1528 bytes"
+    else FrameOk (C1 timestamp randomData)
+
+-- | Get chunk header size for chunk type
+rtmp-chunk-header-size :: RtmpChunkType -> Int
+rtmp-chunk-header-size ct =
+  case ct of
+    ChunkType0 -> 12
+    ChunkType1 -> 8
+    ChunkType2 -> 4
+    ChunkType3 -> 1
+
+-- | Serialize chunk to byte representation (skeleton)
+serialize-rtmp-chunk :: RtmpChunk -> List Int
+serialize-rtmp-chunk (RtmpChunk csid _ _ _ payload) =
+  Cons csid payload  -- Baseline: prefix with csid

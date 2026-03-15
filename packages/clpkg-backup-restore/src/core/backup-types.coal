@@ -1,0 +1,136 @@
+module Core.BackupTypes
+  ( BackupType(..)
+  , CompressionAlg(..)
+  , StorageTargetType(..)
+  , StorageTarget(..)
+  , Snapshot(..)
+  , SnapshotStatus(..)
+  , RestorePoint(..)
+  , RestoreStatus(..)
+  , RetentionPolicy(..)
+  , BackupSchedule(..)
+  , ScheduleFreq(..)
+  , BackupJob(..)
+  , JobStatus(..)
+  , BackupResult(..)
+  , snapshot-size-human
+  , retention-expired-p
+  , job-succeeded-p
+  , restore-complete-p
+  ) where
+
+-- Backup/restore domain types.
+
+-- | Backup type
+data BackupType
+  = FullBackup
+  | IncrementalBackup
+  | DifferentialBackup
+  | SnapshotBackup
+
+-- | Compression
+data CompressionAlg
+  = NoCompression
+  | Gzip
+  | Zstd
+  | Lz4
+
+-- | Storage target type
+data StorageTargetType
+  = LocalDisk
+  | S3Compatible String  -- endpoint
+  | Sftp String           -- host
+  | Nfs String            -- mountPoint
+
+-- | Storage target
+data StorageTarget
+  = StorageTarget String StorageTargetType String Bool
+  -- name type path encrypted
+
+-- | Snapshot status
+data SnapshotStatus
+  = SnapPending
+  | SnapInProgress
+  | SnapComplete
+  | SnapFailed String
+  | SnapExpired
+
+-- | Snapshot
+data Snapshot
+  = Snapshot String BackupType SnapshotStatus Int Int CompressionAlg String
+  -- id backupType status createdAtUnix sizeBytes compression checksum
+
+-- | Restore status
+data RestoreStatus
+  = RestorePending
+  | RestoreInProgress Int  -- percentComplete
+  | RestoreComplete
+  | RestoreFailed String
+  | RestoreVerifying
+
+-- | Restore point
+data RestorePoint
+  = RestorePoint String String RestoreStatus Int String
+  -- snapshotId targetPath status startedAtUnix notes
+
+-- | Retention policy
+data RetentionPolicy
+  = RetentionPolicy Int Int Int Int
+  -- keepDaily keepWeekly keepMonthly keepYearly
+
+-- | Schedule frequency
+data ScheduleFreq
+  = Hourly
+  | Daily Int          -- hour
+  | Weekly Int Int     -- dayOfWeek hour
+  | Monthly Int Int    -- dayOfMonth hour
+
+-- | Backup schedule
+data BackupSchedule
+  = BackupSchedule String ScheduleFreq BackupType StorageTarget RetentionPolicy Bool
+  -- name frequency backupType target retention enabled
+
+-- | Job status
+data JobStatus
+  = JobQueued
+  | JobRunning Int     -- startedAtUnix
+  | JobSucceeded Int Int -- completedAtUnix durationSecs
+  | JobFailed Int String -- failedAtUnix error
+  | JobCancelled
+
+-- | Backup job
+data BackupJob
+  = BackupJob String String BackupType JobStatus StorageTarget
+  -- id scheduleName backupType status target
+
+-- | Backup operation result (total)
+data BackupResult a
+  = BackupOk a
+  | BackupErr String
+
+-- | Human-readable snapshot size
+snapshot-size-human :: Snapshot -> String
+snapshot-size-human (Snapshot _ _ _ _ size _ _) =
+  if (>= size 1073741824) then concatenate (show (div size 1073741824)) " GiB"
+  else if (>= size 1048576) then concatenate (show (div size 1048576)) " MiB"
+  else if (>= size 1024) then concatenate (show (div size 1024)) " KiB"
+  else concatenate (show size) " B"
+
+-- | Is snapshot past retention?
+retention-expired-p :: Int -> Int -> RetentionPolicy -> Bool
+retention-expired-p ageInDays _ (RetentionPolicy daily _ _ _) =
+  (> ageInDays (* daily 1))
+
+-- | Did job succeed?
+job-succeeded-p :: BackupJob -> Bool
+job-succeeded-p (BackupJob _ _ _ status _) =
+  case status of
+    JobSucceeded _ _ -> True
+    _                -> False
+
+-- | Is restore complete?
+restore-complete-p :: RestorePoint -> Bool
+restore-complete-p (RestorePoint _ _ status _ _) =
+  case status of
+    RestoreComplete -> True
+    _               -> False

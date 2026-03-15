@@ -1,0 +1,119 @@
+module Core.CostTypes
+  ( Currency(..)
+  , MoneyAmount(..)
+  , BillingPeriod(..)
+  , ResourceTag(..)
+  , SpendEntry(..)
+  , Budget(..)
+  , BudgetStatus(..)
+  , CostForecast(..)
+  , ForecastMethod(..)
+  , AlertThreshold(..)
+  , AlertAction(..)
+  , CostReport(..)
+  , CostResult(..)
+  , money-to-cents
+  , budget-remaining-pct
+  , spend-total-cents
+  , threshold-exceeded-p
+  ) where
+
+-- Cost governance domain types.
+-- Total constructors throughout.
+
+-- | Currency
+data Currency
+  = USD
+  | EUR
+  | GBP
+  | JPY
+  | CustomCurrency String
+
+-- | Money amount (stored as cents for precision)
+data MoneyAmount
+  = MoneyAmount Int Currency  -- cents currency
+
+-- | Billing period
+data BillingPeriod
+  = Daily
+  | Weekly
+  | Monthly
+  | Quarterly
+  | Yearly
+  | CustomPeriod Int  -- days
+
+-- | Resource tag for cost allocation
+data ResourceTag
+  = ResourceTag String String  -- key value
+
+-- | Spend entry
+data SpendEntry
+  = SpendEntry String MoneyAmount Int (List ResourceTag)
+  -- serviceName amount timestamp tags
+
+-- | Budget
+data Budget
+  = Budget String MoneyAmount BillingPeriod MoneyAmount
+  -- name limit period spent
+
+-- | Budget status
+data BudgetStatus
+  = UnderBudget
+  | NearBudget    -- >80%
+  | OverBudget
+  | CriticalOverage  -- >150%
+
+-- | Forecast method
+data ForecastMethod
+  = LinearExtrapolation
+  | MovingAverage Int  -- windowSize
+  | ExponentialSmoothing Double  -- alpha
+
+-- | Cost forecast
+data CostForecast
+  = CostForecast String ForecastMethod MoneyAmount MoneyAmount Double
+  -- budgetName method currentSpend projectedSpend confidence
+
+-- | Alert action
+data AlertAction
+  = NotifyEmail String
+  | NotifySlack String
+  | ThrottleResource String
+  | TerminateResource String
+
+-- | Alert threshold
+data AlertThreshold
+  = AlertThreshold String Int (List AlertAction)
+  -- budgetName percentThreshold actions
+
+-- | Cost report
+data CostReport
+  = CostReport Int Int (List SpendEntry) (List Budget) (List CostForecast) (List AlertThreshold)
+  -- periodStart periodEnd entries budgets forecasts thresholds
+
+-- | Cost operation result (total)
+data CostResult a
+  = CostOk a
+  | CostErr String
+
+-- | Convert money to cents
+money-to-cents :: MoneyAmount -> Int
+money-to-cents (MoneyAmount cents _) = cents
+
+-- | Budget remaining percentage (0-100, clamped)
+budget-remaining-pct :: Budget -> Int
+budget-remaining-pct (Budget _ (MoneyAmount limit _) _ (MoneyAmount spent _)) =
+  if (== limit 0) then 0
+  else (max 0 (min 100 (div (* (- limit spent) 100) limit)))
+
+-- | Total spend in cents from entry list
+spend-total-cents :: List SpendEntry -> Int
+spend-total-cents entries =
+  case entries of
+    Nil -> 0
+    Cons (SpendEntry _ (MoneyAmount c _) _ _) xs -> (+ c (spend-total-cents xs))
+
+-- | Check if threshold is exceeded
+threshold-exceeded-p :: AlertThreshold -> Budget -> Bool
+threshold-exceeded-p (AlertThreshold _ pct _) budget =
+  (< (budget-remaining-pct budget) (- 100 pct))

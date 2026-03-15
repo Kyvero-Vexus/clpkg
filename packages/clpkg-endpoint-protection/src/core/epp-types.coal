@@ -1,0 +1,53 @@
+module Core.EppTypes
+  ( ThreatType(..)
+  , ThreatSeverity(..)
+  , Detection(..)
+  , DetectionAction(..)
+  , ScanType(..)
+  , ScanSchedule(..)
+  , QuarantineEntry(..)
+  , ExclusionRule(..)
+  , ExclusionType(..)
+  , PolicyEnforcement(..)
+  , DeviceStatus(..)
+  , AgentHealth(..)
+  , ThreatIntel(..)
+  , EppResult(..)
+  , detection-is-malware
+  , quarantine-age-hours
+  , agent-healthy-p
+  , threat-score-high-p
+  ) where
+
+data ThreatType = Malware | Ransomware | Trojan | Worm | Adware | PUP | Exploit | Rootkit | Fileless
+data ThreatSeverity = ThreatCritical | ThreatHigh | ThreatMedium | ThreatLow
+data DetectionAction = Quarantined | Cleaned | Blocked | Allowed | Reported
+data Detection = Detection String ThreatType ThreatSeverity String DetectionAction Int String
+  -- id threatType severity filePath action detectedAtUnix hash
+data ScanType = FullScan | QuickScan | CustomScan (List String) | RealtimeProtection
+data ScanSchedule = ScanSchedule ScanType Int Bool -- scanType intervalHours enabled
+data QuarantineEntry = QuarantineEntry String String String Int Int
+  -- detectionId originalPath quarantinePath quarantinedAtUnix sizeBytes
+data ExclusionType = PathExclusion | ProcessExclusion | HashExclusion | ExtensionExclusion
+data ExclusionRule = ExclusionRule String ExclusionType String String
+  -- name exclusionType pattern reason
+data PolicyEnforcement = Enforce | AuditOnly | Disabled
+data DeviceStatus = DeviceProtected | DeviceAtRisk String | DeviceCompromised String | DeviceOffline
+data AgentHealth = AgentHealth String String Bool Int Int
+  -- version signatureVersion upToDate lastCheckInUnix cpuUsagePct
+data ThreatIntel = ThreatIntel String String Double Int (List String)
+  -- ioc description confidenceScore firstSeenUnix tags
+data EppResult a = EppOk a | EppErr String
+
+detection-is-malware :: Detection -> Bool
+detection-is-malware (Detection _ tt _ _ _ _ _) = case tt of
+  Malware -> True; Ransomware -> True; Trojan -> True; Worm -> True; Rootkit -> True; _ -> False
+
+quarantine-age-hours :: QuarantineEntry -> Int -> Int
+quarantine-age-hours (QuarantineEntry _ _ _ qTime _) nowUnix = (div (- nowUnix qTime) 3600)
+
+agent-healthy-p :: AgentHealth -> Bool
+agent-healthy-p (AgentHealth _ _ upToDate _ _) = upToDate
+
+threat-score-high-p :: ThreatIntel -> Bool
+threat-score-high-p (ThreatIntel _ _ score _ _) = (>= score 0.8)

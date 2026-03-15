@@ -1,0 +1,54 @@
+module Core.ForumTypes
+  ( ForumPlatform(..)
+  , ThreadStatus(..)
+  , ForumThread(..)
+  , ForumPost(..)
+  , UserRole(..)
+  , ForumUser(..)
+  , Category(..)
+  , Moderation(..)
+  , ModerationAction(..)
+  , NotificationType(..)
+  , Notification(..)
+  , SearchScope(..)
+  , ForumBookmark(..)
+  , ForumResult(..)
+  , thread-open-p
+  , post-is-op
+  , user-can-moderate
+  , unread-notification-count
+  ) where
+
+data ForumPlatform = Discourse | Reddit | HackerNews | Lemmy | PhpBB | CustomForum String
+data ThreadStatus = Open | Locked | Pinned | Archived | Deleted
+data ForumThread = ForumThread String String String ThreadStatus Int Int Int
+  -- id title categoryId status replyCount viewCount createdAtUnix
+data ForumPost = ForumPost String String String String Int Int Bool
+  -- id threadId authorId content createdAtUnix score isOp
+data UserRole = Guest | Member | Moderator | Admin | Banned
+data ForumUser = ForumUser String String UserRole Int Int -- id username role postCount reputation
+data Category = Category String String String Int Bool -- id name description threadCount isPrivate
+data ModerationAction = Lock | Pin | Unpin | MoveThread | DeletePost | BanUser | Warn
+data Moderation = Moderation String ModerationAction String String Int
+  -- targetId action moderatorId reason timestamp
+data NotificationType = Reply | Mention | Quote | Like | ModAction
+data Notification = Notification String NotificationType String String Int Bool
+  -- id notifType sourceId message timestamp read
+data SearchScope = SearchAll | SearchThread String | SearchCategory String | SearchUser String
+data ForumBookmark = ForumBookmark String String String Int -- id targetType targetId savedAtUnix
+data ForumResult a = ForumOk a | ForumErr String
+
+thread-open-p :: ThreadStatus -> Bool
+thread-open-p s = case s of Open -> True; Pinned -> True; _ -> False
+
+post-is-op :: ForumPost -> Bool
+post-is-op (ForumPost _ _ _ _ _ _ isOp) = isOp
+
+user-can-moderate :: ForumUser -> Bool
+user-can-moderate (ForumUser _ _ role _ _) = case role of Moderator -> True; Admin -> True; _ -> False
+
+unread-notification-count :: List Notification -> Int
+unread-notification-count ns = case ns of
+  Nil -> 0
+  Cons (Notification _ _ _ _ _ read) xs ->
+    (+ (if read 0 1) (unread-notification-count xs))

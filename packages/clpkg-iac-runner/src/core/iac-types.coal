@@ -1,0 +1,146 @@
+module Core.IacTypes
+  ( ResourceType(..)
+  , ResourceState(..)
+  , ResourceSpec(..)
+  , PlanActionType(..)
+  , PlanAction(..)
+  , ExecutionPlan(..)
+  , ApplyStatus(..)
+  , ApplyResult(..)
+  , DriftSeverity(..)
+  , DriftEntry(..)
+  , DriftReport(..)
+  , ProviderType(..)
+  , ProviderConfig(..)
+  , StateBackend(..)
+  , IacResult(..)
+  , resource-needs-update
+  , plan-action-count
+  , drift-has-breaking
+  , apply-succeeded-p
+  ) where
+
+-- Infrastructure-as-Code runner domain types.
+-- Total constructors throughout.
+
+-- | Resource type
+data ResourceType
+  = Compute
+  | Storage
+  | Network
+  | Database
+  | Security
+  | Dns
+  | CustomResource String
+
+-- | Resource state
+data ResourceState
+  = Planned
+  | Creating
+  | Created
+  | Updating
+  | Deleting
+  | Deleted
+  | Failed String  -- errorMessage
+
+-- | Resource spec
+data ResourceSpec
+  = ResourceSpec String ResourceType String (List String) (List String)
+  -- name type provider properties dependencies
+
+-- | Plan action type
+data PlanActionType
+  = ActionCreate
+  | ActionUpdate
+  | ActionDelete
+  | ActionReplace
+  | ActionNoOp
+
+-- | Plan action
+data PlanAction
+  = PlanAction String PlanActionType String String
+  -- resourceName action reason diff
+
+-- | Execution plan
+data ExecutionPlan
+  = ExecutionPlan String (List PlanAction) Int Bool
+  -- planId actions timestamp autoApprove
+
+-- | Apply status
+data ApplyStatus
+  = ApplyPending
+  | ApplyInProgress
+  | ApplySucceeded
+  | ApplyFailed String
+  | ApplyRolledBack
+
+-- | Apply result
+data ApplyResult
+  = ApplyResult String ApplyStatus Int Int Int
+  -- planId status created updated deleted
+
+-- | Drift severity
+data DriftSeverity
+  = DriftCritical
+  | DriftWarning
+  | DriftInfo
+
+-- | Drift entry
+data DriftEntry
+  = DriftEntry String String DriftSeverity String String
+  -- resourceName field severity expected actual
+
+-- | Drift report
+data DriftReport
+  = DriftReport Int (List DriftEntry) Bool
+  -- timestamp entries hasBreaking
+
+-- | Provider type
+data ProviderType
+  = AwsProvider
+  | GcpProvider
+  | AzureProvider
+  | LocalProvider
+  | CustomProvider String
+
+-- | Provider config
+data ProviderConfig
+  = ProviderConfig String ProviderType String String Bool
+  -- name type region credentialPath initialized
+
+-- | State backend
+data StateBackend
+  = LocalStateFile String
+  | RemoteState String String  -- endpoint bucket
+  | ConsulState String String  -- address prefix
+
+-- | IaC operation result (total)
+data IacResult a
+  = IacOk a
+  | IacErr String
+
+-- | Does resource need update?
+resource-needs-update :: ResourceState -> Bool
+resource-needs-update state =
+  case state of
+    Created -> False
+    Deleted -> False
+    _       -> True
+
+-- | Count actions in plan
+plan-action-count :: ExecutionPlan -> Int
+plan-action-count (ExecutionPlan _ actions _ _) =
+  case actions of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Does drift report have breaking entries?
+drift-has-breaking :: DriftReport -> Bool
+drift-has-breaking (DriftReport _ _ hasBreaking) = hasBreaking
+
+-- | Did apply succeed?
+apply-succeeded-p :: ApplyResult -> Bool
+apply-succeeded-p (ApplyResult _ status _ _ _) =
+  case status of
+    ApplySucceeded -> True
+    _              -> False

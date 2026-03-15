@@ -1,0 +1,138 @@
+module Core.GatewayTypes
+  ( HttpMethod(..)
+  , Route(..)
+  , RouteMatch(..)
+  , RateLimitWindow(..)
+  , RateLimiter(..)
+  , AuthType(..)
+  , AuthPolicy(..)
+  , TransformOp(..)
+  , RequestTransform(..)
+  , ResponseTransform(..)
+  , UpstreamTarget(..)
+  , Upstream(..)
+  , CorsConfig(..)
+  , GatewayConfig(..)
+  , GatewayResult(..)
+  , route-matches-method
+  , rate-limit-exceeded-p
+  , auth-required-p
+  , upstream-healthy-count
+  ) where
+
+-- API gateway domain types.
+-- Total constructors throughout.
+
+-- | HTTP methods
+data HttpMethod
+  = GET
+  | POST
+  | PUT
+  | DELETE
+  | PATCH
+  | OPTIONS
+  | HEAD
+  | AnyMethod
+
+-- | Route match criteria
+data RouteMatch
+  = ExactMatch String
+  | PrefixMatch String
+  | RegexMatch String
+
+-- | Route definition
+data Route
+  = Route String RouteMatch (List HttpMethod) String Bool Int
+  -- name match methods upstreamName stripPrefix timeoutMs
+
+-- | Rate limit window
+data RateLimitWindow
+  = PerSecond
+  | PerMinute
+  | PerHour
+
+-- | Rate limiter
+data RateLimiter
+  = RateLimiter String Int RateLimitWindow String
+  -- name maxRequests window keyExtractor
+
+-- | Auth type
+data AuthType
+  = JwtAuth String    -- issuer
+  | ApiKeyAuth String -- headerName
+  | BasicAuth
+  | OAuth2 String     -- provider
+  | NoAuth
+
+-- | Auth policy
+data AuthPolicy
+  = AuthPolicy String AuthType Bool (List String)
+  -- name authType required excludePaths
+
+-- | Transform operation
+data TransformOp
+  = AddHeader String String
+  | RemoveHeader String
+  | RewritePath String String   -- from to
+  | AddQueryParam String String
+  | SetBody String
+
+-- | Request transform
+data RequestTransform
+  = RequestTransform String (List TransformOp)
+  -- name operations
+
+-- | Response transform
+data ResponseTransform
+  = ResponseTransform String (List TransformOp)
+  -- name operations
+
+-- | Upstream target
+data UpstreamTarget
+  = UpstreamTarget String Int Int Bool
+  -- host port weight healthy
+
+-- | Upstream (backend service)
+data Upstream
+  = Upstream String (List UpstreamTarget) String Int
+  -- name targets loadBalancer healthCheckIntervalMs
+
+-- | CORS configuration
+data CorsConfig
+  = CorsConfig (List String) (List String) (List String) Bool Int
+  -- allowOrigins allowMethods allowHeaders allowCredentials maxAgeSeconds
+
+-- | Complete gateway configuration
+data GatewayConfig
+  = GatewayConfig String Int (List Route) (List Upstream)
+                   (List RateLimiter) (List AuthPolicy) (Maybe CorsConfig)
+  -- name listenPort routes upstreams rateLimiters authPolicies cors
+
+-- | Gateway operation result (total)
+data GatewayResult a
+  = GatewayOk a
+  | GatewayErr String
+
+-- | Does route match the given method?
+route-matches-method :: Route -> HttpMethod -> Bool
+route-matches-method (Route _ _ methods _ _ _) method =
+  case methods of
+    Nil -> True  -- empty = all methods
+    _   -> elem method methods
+
+-- | Is rate limit exceeded? (simplified check)
+rate-limit-exceeded-p :: RateLimiter -> Int -> Bool
+rate-limit-exceeded-p (RateLimiter _ maxReq _ _) currentCount =
+  (>= currentCount maxReq)
+
+-- | Is auth required for this policy?
+auth-required-p :: AuthPolicy -> Bool
+auth-required-p (AuthPolicy _ _ required _) = required
+
+-- | Count healthy upstream targets
+upstream-healthy-count :: Upstream -> Int
+upstream-healthy-count (Upstream _ targets _ _) =
+  case targets of
+    Nil -> 0
+    Cons (UpstreamTarget _ _ _ healthy) xs ->
+      (+ (if healthy 1 0) (upstream-healthy-count (Upstream "" xs "" 0)))

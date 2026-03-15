@@ -1,0 +1,87 @@
+module Core.Transport
+  ( TransportMode(..)
+  , LoopRegion(..)
+  , TransportState(..)
+  , TransportCommand(..)
+  , TransportResult(..)
+  , transport-is-playing
+  , transport-is-recording
+  , transport-position-bars
+  , apply-transport-command
+  ) where
+
+-- DAW transport state machine.
+
+-- | Transport modes
+data TransportMode
+  = Stopped
+  | Playing
+  | Recording
+  | Paused
+
+-- | Loop region
+data LoopRegion
+  = NoLoop
+  | LoopBetween Int Int  -- startSample endSample
+
+-- | Transport state
+data TransportState
+  = TransportState TransportMode Int Int LoopRegion Double
+  -- mode positionSample sampleRate loop tempo
+
+-- | Transport commands
+data TransportCommand
+  = CmdPlay
+  | CmdStop
+  | CmdPause
+  | CmdRecord
+  | CmdSeek Int
+  | CmdSetLoop Int Int
+  | CmdClearLoop
+  | CmdSetTempo Double
+
+-- | Transport operation result
+data TransportResult a
+  = TransportOk a
+  | TransportErr String
+
+-- | Is transport playing?
+transport-is-playing :: TransportState -> Bool
+transport-is-playing (TransportState mode _ _ _ _) =
+  case mode of
+    Playing -> True
+    _       -> False
+
+-- | Is transport recording?
+transport-is-recording :: TransportState -> Bool
+transport-is-recording (TransportState mode _ _ _ _) =
+  case mode of
+    Recording -> True
+    _         -> False
+
+-- | Current position in bars (approximate)
+transport-position-bars :: TransportState -> Int
+transport-position-bars (TransportState _ pos sr _ tempo) =
+  let secondsPerBeat = (/ 60.0 tempo)
+      beatsPerBar = 4  -- default 4/4
+      samplesPerBar = (round (* (* secondsPerBeat beatsPerBar) (fromIntegral sr)))
+  in (if (== samplesPerBar 0) 0 (div pos samplesPerBar))
+
+-- | Apply command to transport state (total: always succeeds)
+apply-transport-command :: TransportState -> TransportCommand -> TransportResult TransportState
+apply-transport-command (TransportState _ pos sr loop tempo) cmd =
+  case cmd of
+    CmdPlay    -> TransportOk (TransportState Playing pos sr loop tempo)
+    CmdStop    -> TransportOk (TransportState Stopped 0 sr loop tempo)
+    CmdPause   -> TransportOk (TransportState Paused pos sr loop tempo)
+    CmdRecord  -> TransportOk (TransportState Recording pos sr loop tempo)
+    CmdSeek p  -> if (< p 0)
+                    then TransportErr "Seek position must be non-negative"
+                    else TransportOk (TransportState Stopped p sr loop tempo)
+    CmdSetLoop s e -> if (>= s e)
+                        then TransportErr "Loop start must be before end"
+                        else TransportOk (TransportState Stopped pos sr (LoopBetween s e) tempo)
+    CmdClearLoop -> TransportOk (TransportState Stopped pos sr NoLoop tempo)
+    CmdSetTempo t -> if (<= t 0.0)
+                       then TransportErr "Tempo must be positive"
+                       else TransportOk (TransportState Stopped pos sr loop t)

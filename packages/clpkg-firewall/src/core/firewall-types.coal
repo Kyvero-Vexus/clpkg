@@ -1,0 +1,50 @@
+module Core.FirewallTypes
+  ( Protocol(..)
+  , PortRange(..)
+  , RuleAction(..)
+  , RuleDirection(..)
+  , FirewallRule(..)
+  , RuleChain(..)
+  , ChainPolicy(..)
+  , Zone(..)
+  , NatType(..)
+  , NatRule(..)
+  , RateLimitRule(..)
+  , ConnectionState(..)
+  , FirewallConfig(..)
+  , FirewallResult(..)
+  , rule-permits-p
+  , chain-rule-count
+  , nat-is-snat
+  , port-in-range
+  ) where
+
+data Protocol = TCP | UDP | ICMP | AnyProtocol
+data PortRange = PortRange Int Int -- start end
+data RuleAction = Allow | Deny | Drop | Reject | Log
+data RuleDirection = Inbound | Outbound | Forward
+data FirewallRule = FirewallRule String Int RuleDirection Protocol (Maybe PortRange) String String RuleAction
+  -- name priority direction protocol portRange sourceAddr destAddr action
+data ChainPolicy = ChainAccept | ChainDrop | ChainReject
+data RuleChain = RuleChain String (List FirewallRule) ChainPolicy -- name rules defaultPolicy
+data Zone = Zone String (List String) (List RuleChain) Bool -- name interfaces chains trusted
+data NatType = SNAT String | DNAT String Int | Masquerade -- sourceIp | destIp destPort
+data NatRule = NatRule String NatType String Protocol (Maybe PortRange)
+  -- name natType sourceMatch protocol portRange
+data RateLimitRule = RateLimitRule String Int Int String -- name maxRate burstSize sourceMatch
+data ConnectionState = New | Established | Related | Invalid
+data FirewallConfig = FirewallConfig (List Zone) (List NatRule) (List RateLimitRule) Bool Bool
+  -- zones natRules rateLimits statefulInspection logging
+data FirewallResult a = FirewallOk a | FirewallErr String
+
+rule-permits-p :: FirewallRule -> Bool
+rule-permits-p (FirewallRule _ _ _ _ _ _ _ action) = case action of Allow -> True; _ -> False
+
+chain-rule-count :: RuleChain -> Int
+chain-rule-count (RuleChain _ rules _) = case rules of Nil -> 0; Cons _ xs -> (+ 1 (length xs))
+
+nat-is-snat :: NatRule -> Bool
+nat-is-snat (NatRule _ natType _ _ _) = case natType of SNAT _ -> True; _ -> False
+
+port-in-range :: PortRange -> Int -> Bool
+port-in-range (PortRange start end) port = (and (>= port start) (<= port end))

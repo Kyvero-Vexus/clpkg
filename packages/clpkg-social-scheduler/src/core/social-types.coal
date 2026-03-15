@@ -1,0 +1,48 @@
+module Core.SocialTypes
+  ( Platform(..)
+  , PostStatus(..)
+  , MediaType(..)
+  , MediaAttachment(..)
+  , Post(..)
+  , ScheduledPost(..)
+  , PostMetrics(..)
+  , Account(..)
+  , AccountStatus(..)
+  , ContentCalendar(..)
+  , HashtagGroup(..)
+  , PostTemplate(..)
+  , PublishResult(..)
+  , SocialResult(..)
+  , post-published-p
+  , schedule-overdue-p
+  , engagement-rate
+  , account-connected-p
+  ) where
+
+data Platform = Twitter | Mastodon | Bluesky | LinkedIn | Instagram | Facebook | Threads | CustomPlatform String
+data PostStatus = Draft | Scheduled Int | Publishing | Published Int | Failed String | Deleted
+data MediaType = Image | Video | Gif | Poll
+data MediaAttachment = MediaAttachment String MediaType String String -- id mediaType url altText
+data Post = Post String String (List MediaAttachment) (List String) Platform -- id content media hashtags platform
+data ScheduledPost = ScheduledPost Post Int Bool String -- post scheduledAtUnix recurring timezone
+data PostMetrics = PostMetrics String Int Int Int Int Int -- postId likes reposts replies impressions clicks
+data AccountStatus = Connected | Disconnected | RateLimited Int | Suspended
+data Account = Account String Platform String AccountStatus Int -- id platform handle status followerCount
+data ContentCalendar = ContentCalendar String (List ScheduledPost) String -- name posts timezone
+data HashtagGroup = HashtagGroup String (List String) -- name hashtags
+data PostTemplate = PostTemplate String String (List String) -- name template placeholders
+data PublishResult = PublishSuccess String String Int | PublishFailure String String -- platform postId/error timestamp
+data SocialResult a = SocialOk a | SocialErr String
+
+post-published-p :: PostStatus -> Bool
+post-published-p s = case s of Published _ -> True; _ -> False
+
+schedule-overdue-p :: ScheduledPost -> Int -> Bool
+schedule-overdue-p (ScheduledPost _ scheduledAt _ _) nowUnix = (> nowUnix scheduledAt)
+
+engagement-rate :: PostMetrics -> Int -> Int
+engagement-rate (PostMetrics _ likes reposts replies impressions _) _ =
+  if (== impressions 0) then 0 else (div (* (+ likes (+ reposts replies)) 10000) impressions)
+
+account-connected-p :: Account -> Bool
+account-connected-p (Account _ _ _ status _) = case status of Connected -> True; _ -> False

@@ -1,0 +1,124 @@
+module Core.RuntimeTypes
+  ( ContainerState(..)
+  , ImageRef(..)
+  , ImagePullPolicy(..)
+  , Namespace(..)
+  , CgroupVersion(..)
+  , CgroupConfig(..)
+  , NetworkMode(..)
+  , PortMapping(..)
+  , VolumeType(..)
+  , VolumeMount(..)
+  , ContainerSpec(..)
+  , ContainerInfo(..)
+  , RuntimeConfig(..)
+  , RuntimeResult(..)
+  , container-running-p
+  , image-tag
+  , cgroup-memory-limit-bytes
+  , volume-readonly-p
+  ) where
+
+-- Container runtime domain types.
+
+-- | Container state
+data ContainerState
+  = StateCreated
+  | StateRunning Int      -- pid
+  | StatePaused
+  | StateStopped Int      -- exitCode
+  | StateRestarting
+  | StateRemoving
+  | StateDead String      -- error
+
+-- | Image reference
+data ImageRef
+  = ImageRef String String String  -- registry repository tag
+
+-- | Image pull policy
+data ImagePullPolicy
+  = Always
+  | IfNotPresent
+  | Never
+
+-- | Namespace
+data Namespace
+  = Namespace String Bool  -- name active
+
+-- | Cgroup version
+data CgroupVersion
+  = CgroupV1
+  | CgroupV2
+
+-- | Cgroup resource config
+data CgroupConfig
+  = CgroupConfig CgroupVersion Int Int Int Int
+  -- version cpuShares cpuQuotaUs memoryLimitMiB pidsLimit
+
+-- | Network mode
+data NetworkMode
+  = BridgeNetwork
+  | HostNetwork
+  | NoneNetwork
+  | ContainerNetwork String  -- containerId
+  | CustomNetwork String     -- networkName
+
+-- | Port mapping
+data PortMapping
+  = PortMapping Int Int String  -- hostPort containerPort protocol
+
+-- | Volume type
+data VolumeType
+  = BindMount
+  | NamedVolume
+  | TmpfsVolume
+  | SecretVolume
+
+-- | Volume mount
+data VolumeMount
+  = VolumeMount String String VolumeType Bool
+  -- source target volumeType readOnly
+
+-- | Container spec
+data ContainerSpec
+  = ContainerSpec String ImageRef ImagePullPolicy
+                   (List String) (List String) (List String)
+                   CgroupConfig NetworkMode
+                   (List PortMapping) (List VolumeMount)
+  -- name image pullPolicy command args env
+  -- cgroup network ports volumes
+
+-- | Container info (runtime state)
+data ContainerInfo
+  = ContainerInfo String String ContainerState Int Int
+  -- id name state createdAtUnix startedAtUnix
+
+-- | Runtime config
+data RuntimeConfig
+  = RuntimeConfig String String String Bool
+  -- socketPath storageDriver logDriver debug
+
+-- | Runtime operation result (total)
+data RuntimeResult a
+  = RuntimeOk a
+  | RuntimeErr String
+
+-- | Is container running?
+container-running-p :: ContainerState -> Bool
+container-running-p state =
+  case state of
+    StateRunning _ -> True
+    _              -> False
+
+-- | Get image tag
+image-tag :: ImageRef -> String
+image-tag (ImageRef _ _ tag) = tag
+
+-- | Cgroup memory limit in bytes
+cgroup-memory-limit-bytes :: CgroupConfig -> Int
+cgroup-memory-limit-bytes (CgroupConfig _ _ _ memMiB _) =
+  (* memMiB 1048576)
+
+-- | Is volume mounted read-only?
+volume-readonly-p :: VolumeMount -> Bool
+volume-readonly-p (VolumeMount _ _ _ ro) = ro

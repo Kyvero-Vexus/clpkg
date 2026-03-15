@@ -1,0 +1,50 @@
+module Core.ReaderTypes
+  ( ArticleStatus(..)
+  , Article(..)
+  , ContentFormat(..)
+  , ReadingProgress(..)
+  , Highlight(..)
+  , HighlightColor(..)
+  , Annotation(..)
+  , Tag(..)
+  , ReadingList(..)
+  , ArchiveFormat(..)
+  , OfflineCache(..)
+  , CacheStatus(..)
+  , ExportTarget(..)
+  , ReaderResult(..)
+  , article-read-p
+  , reading-progress-pct
+  , highlight-count
+  , cache-available-p
+  ) where
+
+data ArticleStatus = Unread | Reading | Read | Archived
+data ContentFormat = FullHtml | SimplifiedHtml | PlainTextContent | Markdown | Epub
+data Article = Article String String String String ContentFormat ArticleStatus Int (List Tag)
+  -- id title url author format status savedAtUnix tags
+data ReadingProgress = ReadingProgress String Int Int Int -- articleId scrollPosition totalLength lastReadUnix
+data HighlightColor = Yellow | Green | Blue | Pink | Orange
+data Highlight = Highlight String String HighlightColor String Int Int
+  -- id articleId color selectedText startOffset endOffset
+data Annotation = Annotation String String String Int -- id highlightId note createdAtUnix
+data Tag = Tag String Int -- name count
+data ReadingList = ReadingList String (List Article) Bool -- name articles isDefault
+data ArchiveFormat = Warc | Mhtml | SingleFile | PdfArchive
+data OfflineCache = OfflineCache String CacheStatus Int Int -- articleId cacheStatus cachedAtUnix sizeBytes
+data CacheStatus = Cached | Downloading Int | NotCached | CacheError String -- progress%
+data ExportTarget = ExportKindle | ExportPocket | ExportInstapaper | ExportFile ArchiveFormat
+data ReaderResult a = ReaderOk a | ReaderErr String
+
+article-read-p :: Article -> Bool
+article-read-p (Article _ _ _ _ _ status _ _) = case status of Read -> True; Archived -> True; _ -> False
+
+reading-progress-pct :: ReadingProgress -> Int
+reading-progress-pct (ReadingProgress _ pos total _) =
+  if (== total 0) then 0 else (div (* pos 100) total)
+
+highlight-count :: List Highlight -> Int
+highlight-count hs = case hs of Nil -> 0; Cons _ xs -> (+ 1 (length xs))
+
+cache-available-p :: OfflineCache -> Bool
+cache-available-p (OfflineCache _ status _ _) = case status of Cached -> True; _ -> False

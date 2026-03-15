@@ -1,0 +1,131 @@
+module Core.ClusterTypes
+  ( NodeStatus(..)
+  , Node(..)
+  , PodPhase(..)
+  , ContainerStatus(..)
+  , PodContainer(..)
+  , Pod(..)
+  , DeploymentStrategy(..)
+  , Deployment(..)
+  , ServiceType(..)
+  , Service(..)
+  , ScalingMetric(..)
+  , ScalingPolicy(..)
+  , ResourceQuota(..)
+  , SchedulerConfig(..)
+  , ClusterResult(..)
+  , node-ready-p
+  , pod-running-p
+  , deployment-available-p
+  , scaling-needed-p
+  ) where
+
+-- Cluster orchestration domain types.
+
+-- | Node status
+data NodeStatus
+  = NodeReady
+  | NodeNotReady String
+  | NodeUnknown
+  | NodeCordon
+
+-- | Cluster node
+data Node
+  = Node String NodeStatus Int Int Int Int
+  -- name status cpuMillis memMiB podsRunning podsCapacity
+
+-- | Pod phase
+data PodPhase
+  = PodPending
+  | PodRunning
+  | PodSucceeded
+  | PodFailed String
+  | PodUnknown
+
+-- | Container status within pod
+data ContainerStatus
+  = ContainerWaiting String
+  | ContainerRunning Int    -- startedAtUnix
+  | ContainerTerminated Int Int -- exitCode finishedAtUnix
+
+-- | Pod container spec
+data PodContainer
+  = PodContainer String String (List String) Int Int ContainerStatus
+  -- name image command cpuRequestMillis memRequestMiB status
+
+-- | Pod
+data Pod
+  = Pod String String PodPhase (List PodContainer) Int
+  -- name namespace phase containers restartCount
+
+-- | Deployment strategy
+data DeploymentStrategy
+  = RollingUpdate Int Int  -- maxSurge maxUnavailable
+  | Recreate
+
+-- | Deployment
+data Deployment
+  = Deployment String String Int Int Int DeploymentStrategy
+  -- name namespace replicas readyReplicas updatedReplicas strategy
+
+-- | Service type
+data ServiceType
+  = ClusterIP
+  | NodePort Int     -- port
+  | LoadBalancer String -- externalIP
+  | ExternalName String
+
+-- | Service
+data Service
+  = Service String String ServiceType Int String
+  -- name namespace serviceType port selector
+
+-- | Scaling metric
+data ScalingMetric
+  = CpuUtilization Int    -- targetPercent
+  | MemUtilization Int
+  | CustomMetric String Int -- name targetValue
+
+-- | Scaling policy
+data ScalingPolicy
+  = ScalingPolicy String Int Int ScalingMetric Int
+  -- deploymentName minReplicas maxReplicas metric cooldownSeconds
+
+-- | Resource quota
+data ResourceQuota
+  = ResourceQuota String Int Int Int Int
+  -- namespace cpuLimitMillis memLimitMiB podLimit storageGiB
+
+-- | Scheduler config
+data SchedulerConfig
+  = SchedulerConfig String (List String) (List String) Bool
+  -- name nodeSelectors tolerations preemptionEnabled
+
+-- | Cluster operation result (total)
+data ClusterResult a
+  = ClusterOk a
+  | ClusterErr String
+
+-- | Is node ready?
+node-ready-p :: Node -> Bool
+node-ready-p (Node _ status _ _ _ _) =
+  case status of
+    NodeReady -> True
+    _         -> False
+
+-- | Is pod running?
+pod-running-p :: Pod -> Bool
+pod-running-p (Pod _ _ phase _ _) =
+  case phase of
+    PodRunning -> True
+    _          -> False
+
+-- | Is deployment fully available?
+deployment-available-p :: Deployment -> Bool
+deployment-available-p (Deployment _ _ replicas ready _ _) =
+  (== replicas ready)
+
+-- | Is scaling needed? (simplified: check if current != desired)
+scaling-needed-p :: ScalingPolicy -> Int -> Bool
+scaling-needed-p (ScalingPolicy _ minR maxR _ _) currentReplicas =
+  (or (< currentReplicas minR) (> currentReplicas maxR))

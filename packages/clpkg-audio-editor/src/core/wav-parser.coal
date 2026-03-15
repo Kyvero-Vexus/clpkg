@@ -1,0 +1,43 @@
+module Core.WavParser
+  ( parse-wav-header
+  , validate-wav-fmt
+  , serialize-wav-header
+  , wav-duration-ms
+  ) where
+
+import Core.Formats
+
+-- | Parse WAV header from byte list
+parse-wav-header :: List Int -> ParseResult WavFile
+parse-wav-header bytes =
+  case bytes of
+    Nil -> ParseErr "Empty WAV data"
+    _   -> if (< (length bytes) 44)
+             then ParseErr "WAV header requires at least 44 bytes"
+             else ParseOk (WavFile
+                    (WavFmtChunk 1 2 Sr44100 Bits16)
+                    (WavDataChunk 0 Nil))  -- Baseline skeleton
+
+-- | Validate WAV format chunk
+validate-wav-fmt :: WavFmtChunk -> ParseResult WavFmtChunk
+validate-wav-fmt fmt@(WavFmtChunk audioFmt numCh _ _) =
+  if (not (or (== audioFmt 1) (== audioFmt 3)))
+    then ParseErr "Only PCM (1) and IEEE float (3) supported"
+    else if (<= numCh 0)
+      then ParseErr "Channel count must be positive"
+      else ParseOk fmt
+
+-- | Serialize WAV header to bytes (skeleton)
+serialize-wav-header :: WavFile -> List Int
+serialize-wav-header (WavFile _ _) =
+  -- R I F F magic bytes
+  (Cons 82 (Cons 73 (Cons 70 (Cons 70 Nil))))
+
+-- | Calculate WAV duration in milliseconds
+wav-duration-ms :: WavFile -> Int
+wav-duration-ms (WavFile (WavFmtChunk _ numCh sr bd) (WavDataChunk size _)) =
+  let bytesPerSample = (div (bit-depth-bits bd) 8)
+      bytesPerFrame = (* numCh bytesPerSample)
+      totalFrames = (if (== bytesPerFrame 0) 0 (div size bytesPerFrame))
+  in (if (== (sample-rate-hz sr) 0) 0
+       (div (* totalFrames 1000) (sample-rate-hz sr)))

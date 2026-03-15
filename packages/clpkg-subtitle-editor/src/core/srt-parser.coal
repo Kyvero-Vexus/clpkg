@@ -1,0 +1,28 @@
+module Core.SrtParser
+  ( parse-srt
+  , serialize-srt
+  , srt-entry-count
+  ) where
+
+import Core.Formats
+
+-- | Parse SRT subtitle text into list of entries
+parse-srt :: String -> ParseResult (List SrtEntry)
+parse-srt input =
+  if (== (length input) 0)
+    then ParseErr "Empty SRT input"
+    else ParseOk Nil  -- Baseline: non-empty → Ok with empty list
+
+-- | Serialize SRT entries back to text
+serialize-srt :: List SrtEntry -> String
+serialize-srt entries =
+  case entries of
+    Nil -> ""
+    _   -> "<srt-output>"  -- Baseline skeleton
+
+-- | Count entries in parsed SRT
+srt-entry-count :: List SrtEntry -> Int
+srt-entry-count entries =
+  case entries of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (srt-entry-count xs))

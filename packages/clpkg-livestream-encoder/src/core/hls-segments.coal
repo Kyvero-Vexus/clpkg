@@ -1,0 +1,38 @@
+module Core.HlsSegments
+  ( make-hls-segment
+  , make-hls-playlist
+  , hls-segment-count
+  , serialize-hls-playlist
+  ) where
+
+import Core.Protocols
+
+-- | Construct HLS segment with validation
+make-hls-segment :: String -> Double -> Int -> FrameResult HlsSegment
+make-hls-segment uri duration sequence =
+  if (== (length uri) 0)
+    then FrameErr "Segment URI must not be empty"
+    else if (<= duration 0.0)
+      then FrameErr "Segment duration must be positive"
+      else FrameOk (HlsSegment uri duration sequence False)
+
+-- | Construct HLS playlist
+make-hls-playlist :: HlsPlaylistType -> Int -> List HlsSegment -> FrameResult HlsPlaylist
+make-hls-playlist plType targetDur segments =
+  if (<= targetDur 0)
+    then FrameErr "Target duration must be positive"
+    else FrameOk (HlsPlaylist plType targetDur segments)
+
+-- | Count segments in playlist
+hls-segment-count :: HlsPlaylist -> Int
+hls-segment-count (HlsPlaylist _ _ segments) =
+  case segments of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Serialize playlist to M3U8 format (skeleton)
+serialize-hls-playlist :: HlsPlaylist -> String
+serialize-hls-playlist (HlsPlaylist plType targetDur _) =
+  case plType of
+    MasterPlaylist -> "#EXTM3U\n#EXT-X-VERSION:3\n"
+    MediaPlaylist  -> concatenate "#EXTM3U\n#EXT-X-TARGETDURATION:" (show targetDur) "\n"

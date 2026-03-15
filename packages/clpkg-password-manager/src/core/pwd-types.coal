@@ -1,0 +1,49 @@
+module Core.PwdTypes
+  ( EncryptionScheme(..)
+  , KdfAlgorithm(..)
+  , VaultStatus(..)
+  , Vault(..)
+  , EntryType(..)
+  , PasswordEntry(..)
+  , PasswordStrength(..)
+  , GeneratorConfig(..)
+  , AutofillHint(..)
+  , BreachStatus(..)
+  , SharingPermission(..)
+  , SharedEntry(..)
+  , AuditLogEntry(..)
+  , PwdResult(..)
+  , vault-locked-p
+  , entry-is-login
+  , password-strong-p
+  , breach-detected-p
+  ) where
+
+data EncryptionScheme = AES256GCM | XChaCha20Poly1305 | Argon2Encrypted
+data KdfAlgorithm = Argon2id Int Int Int | PBKDF2 Int | Scrypt Int Int Int -- params vary
+data VaultStatus = VaultLocked | VaultUnlocked Int | VaultCorrupted String
+data Vault = Vault String EncryptionScheme KdfAlgorithm VaultStatus Int -- name encryption kdf status entryCount
+data EntryType = Login | SecureNote | CreditCard | Identity | SshKey | ApiCredential
+data PasswordEntry = PasswordEntry String EntryType String String (List String) Int Int
+  -- id entryType title username tags createdAtUnix modifiedAtUnix
+data PasswordStrength = VeryWeak | Weak | Fair | Strong | VeryStrong
+data GeneratorConfig = GeneratorConfig Int Bool Bool Bool Bool String
+  -- length uppercase lowercase digits symbols excludeChars
+data AutofillHint = UrlMatch String | AppMatch String | ManualFill
+data BreachStatus = NotBreached | Breached Int String | Unknown -- count source
+data SharingPermission = ViewOnly | ViewAndCopy | FullAccess
+data SharedEntry = SharedEntry String String SharingPermission Int -- entryId sharedWith permission expiresAtUnix
+data AuditLogEntry = AuditLogEntry String String String Int -- entryId action ipAddress timestamp
+data PwdResult a = PwdOk a | PwdErr String
+
+vault-locked-p :: VaultStatus -> Bool
+vault-locked-p status = case status of VaultLocked -> True; _ -> False
+
+entry-is-login :: PasswordEntry -> Bool
+entry-is-login (PasswordEntry _ et _ _ _ _ _) = case et of Login -> True; _ -> False
+
+password-strong-p :: PasswordStrength -> Bool
+password-strong-p s = case s of Strong -> True; VeryStrong -> True; _ -> False
+
+breach-detected-p :: BreachStatus -> Bool
+breach-detected-p status = case status of Breached _ _ -> True; _ -> False

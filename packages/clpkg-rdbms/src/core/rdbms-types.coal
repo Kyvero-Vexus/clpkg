@@ -1,0 +1,143 @@
+module Core.RdbmsTypes
+  ( SqlType(..)
+  , ColumnConstraint(..)
+  , ColumnDef(..)
+  , TableDef(..)
+  , ForeignKey(..)
+  , IndexDef(..)
+  , SqlValue(..)
+  , Row(..)
+  , ResultSet(..)
+  , TransactionIsolation(..)
+  , Transaction(..)
+  , QueryPlan(..)
+  , PlanNodeType(..)
+  , RdbmsResult(..)
+  , column-nullable-p
+  , resultset-empty-p
+  , table-column-count
+  , plan-estimated-rows
+  ) where
+
+-- Relational database server domain types.
+
+-- | SQL data types
+data SqlType
+  = SqlInteger
+  | SqlBigInt
+  | SqlFloat
+  | SqlDouble
+  | SqlDecimal Int Int   -- precision scale
+  | SqlVarchar Int       -- maxLength
+  | SqlText
+  | SqlBoolean
+  | SqlTimestamp
+  | SqlDate
+  | SqlTime
+  | SqlBlob
+  | SqlJson
+  | SqlUuid
+
+-- | Column constraint
+data ColumnConstraint
+  = NotNull
+  | Unique
+  | PrimaryKey
+  | DefaultValue String
+  | Check String       -- expression
+  | References String String  -- table column
+
+-- | Column definition
+data ColumnDef
+  = ColumnDef String SqlType (List ColumnConstraint)
+  -- name type constraints
+
+-- | Table definition
+data TableDef
+  = TableDef String (List ColumnDef) (List ForeignKey) (List IndexDef)
+  -- name columns foreignKeys indices
+
+-- | Foreign key
+data ForeignKey
+  = ForeignKey String String String String String
+  -- name sourceColumn targetTable targetColumn onDelete
+
+-- | Index definition
+data IndexDef
+  = IndexDef String (List String) Bool Bool
+  -- name columns unique partial
+
+-- | SQL value
+data SqlValue
+  = ValInt Int
+  | ValFloat Double
+  | ValString String
+  | ValBool Bool
+  | ValNull
+  | ValTimestamp Int
+  | ValBlob String
+
+-- | Row
+data Row
+  = Row (List SqlValue)
+
+-- | Result set
+data ResultSet
+  = ResultSet (List ColumnDef) (List Row) Int Int
+  -- columns rows rowCount execTimeMs
+
+-- | Transaction isolation level
+data TransactionIsolation
+  = ReadUncommitted
+  | ReadCommitted
+  | RepeatableRead
+  | Serializable
+
+-- | Transaction
+data Transaction
+  = Transaction String TransactionIsolation Bool Int
+  -- id isolation readOnly startedAtMs
+
+-- | Plan node type
+data PlanNodeType
+  = SeqScan String
+  | IndexScan String String  -- table index
+  | NestedLoop
+  | HashJoin
+  | MergeJoin
+  | Sort (List String)
+  | Aggregate String
+  | Limit Int
+
+-- | Query plan
+data QueryPlan
+  = QueryPlan PlanNodeType Double Double (List QueryPlan)
+  -- nodeType estimatedRows estimatedCost children
+
+-- | RDBMS result (total)
+data RdbmsResult a
+  = RdbmsOk a
+  | RdbmsErr String
+
+-- | Is column nullable?
+column-nullable-p :: ColumnDef -> Bool
+column-nullable-p (ColumnDef _ _ constraints) =
+  case constraints of
+    Nil -> True  -- nullable by default
+    Cons NotNull _ -> False
+    Cons _ xs -> column-nullable-p (ColumnDef "" SqlInteger xs)
+
+-- | Is result set empty?
+resultset-empty-p :: ResultSet -> Bool
+resultset-empty-p (ResultSet _ _ count _) = (== count 0)
+
+-- | Count columns in table
+table-column-count :: TableDef -> Int
+table-column-count (TableDef _ cols _ _) =
+  case cols of
+    Nil -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Get estimated rows from plan
+plan-estimated-rows :: QueryPlan -> Double
+plan-estimated-rows (QueryPlan _ rows _ _) = rows

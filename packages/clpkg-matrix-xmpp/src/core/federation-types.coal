@@ -1,0 +1,49 @@
+module Core.FederationTypes
+  ( Protocol(..)
+  , ServerId(..)
+  , RoomVisibility(..)
+  , Room(..)
+  , RoomEvent(..)
+  , EventType(..)
+  , Membership(..)
+  , EncryptionState(..)
+  , DeviceKey(..)
+  , SyncState(..)
+  , Presence(..)
+  , PowerLevel(..)
+  , RoomAlias(..)
+  , FederationResult(..)
+  , room-is-encrypted
+  , membership-is-join
+  , sync-has-events
+  , power-level-admin-p
+  ) where
+
+data Protocol = Matrix | XMPP | IRC_Bridge
+data ServerId = ServerId String Int -- hostname port
+data RoomVisibility = Public | Private | Invite | Knock
+data Room = Room String String RoomVisibility (Maybe EncryptionState) Int String
+  -- id name visibility encryption memberCount topic
+data EventType = MessageEvent | StateEvent | EphemeralEvent | AccountDataEvent
+data RoomEvent = RoomEvent String String EventType String Int String
+  -- id sender eventType content timestamp roomId
+data Membership = Join | Leave | Invite_ | Ban | Knock_
+data EncryptionState = Megolm | OlmSession | Unencrypted
+data DeviceKey = DeviceKey String String String Bool -- deviceId userId keyData verified
+data SyncState = SyncState String Int (List RoomEvent) Bool -- nextBatch timestamp events initialSync
+data Presence = PresenceOnline | PresenceUnavailable | PresenceOffline
+data PowerLevel = PowerLevel String Int -- userId level
+data RoomAlias = RoomAlias String String -- alias roomId
+data FederationResult a = FedOk a | FedErr String
+
+room-is-encrypted :: Room -> Bool
+room-is-encrypted (Room _ _ _ enc _ _) = case enc of Just _ -> True; Nothing -> False
+
+membership-is-join :: Membership -> Bool
+membership-is-join m = case m of Join -> True; _ -> False
+
+sync-has-events :: SyncState -> Bool
+sync-has-events (SyncState _ _ events _) = case events of Nil -> False; _ -> True
+
+power-level-admin-p :: PowerLevel -> Bool
+power-level-admin-p (PowerLevel _ level) = (>= level 100)

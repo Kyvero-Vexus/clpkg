@@ -1,0 +1,47 @@
+module Core.StateTypes
+  ( ChannelMembership(..)
+  , ChannelState(..)
+  , UserState(..)
+  , NetworkState(..)
+  , TransitionError(..)
+  ) where
+
+-- Consumer mapping notes (parser -> reducer):
+--   * ChannelMembership / ChannelState model reducer-owned membership/channel snapshots.
+--   * UserState stores user-mode projection built from parsed mode operations.
+--   * NetworkState is reducer's top-level immutable transition input/output.
+--   * TransitionError is deterministic reducer failure output (target/arity/symbol/state axes).
+
+data ChannelMembership
+  = Membership
+      { nick : String
+      , isOperator : Bool
+      , hasVoice : Bool
+      }
+
+data ChannelState
+  = Channel
+      { name : String
+      , topic : Maybe String
+      , memberships : List ChannelMembership
+      }
+
+data UserState
+  = User
+      { nick : String
+      , userModes : List String
+      }
+
+data NetworkState
+  = Network
+      { channels : List ChannelState
+      , users : List UserState
+      }
+
+data TransitionError
+  = InvalidTransitionTarget String
+  | TransitionArityMismatch String
+  | UnsupportedTransitionSymbol String
+  | MissingChannelState String
+  | MissingMembership String
+  | MissingUserState String

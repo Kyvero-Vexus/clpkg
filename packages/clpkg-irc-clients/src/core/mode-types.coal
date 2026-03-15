@@ -1,0 +1,71 @@
+module Core.ModeTypes
+  ( ModeTarget(..)
+  , ModePolarity(..)
+  , ModeSymbolClass(..)
+  , ChannelModeAtom(..)
+  , UserModeAtom(..)
+  , ModeArg(..)
+  , ModeOperation(..)
+  , ModeDelta(..)
+  , ModeParseError(..)
+  ) where
+
+-- Consumer mapping notes (parser -> reducer):
+--   * ModeTarget / ModeSymbolClass choose parser branch and reducer dispatch lane.
+--   * ModePolarity + ChannelModeAtom/UserModeAtom + ModeArg form each parsed op payload.
+--   * ModeOperation is emitted by parser and reduced exhaustively by transition logic.
+--   * ModeDelta is the parser envelope consumed directly by reducer apply entrypoint.
+--   * ModeParseError is parser failure output forwarded to reducer/interop boundary.
+
+data ModeTarget
+  = TargetChannel
+  | TargetUser
+
+data ModePolarity
+  = AddMode
+  | RemoveMode
+
+data ModeSymbolClass
+  = ChannelSymbol
+  | UserSymbol
+
+data ChannelModeAtom
+  = ChanInviteOnly
+  | ChanModerated
+  | ChanNoExternal
+  | ChanTopicLock
+  | ChanKey
+  | ChanLimit
+  | ChanBanMask
+  | ChanVoice
+  | ChanOperator
+
+data UserModeAtom
+  = UserInvisible
+  | UserWallops
+  | UserOperator
+  | UserBot
+
+data ModeArg
+  = ArgNone
+  | ArgNick String
+  | ArgMask String
+  | ArgKey String
+  | ArgLimit Int
+
+data ModeOperation
+  = ChannelModeOp ModePolarity ChannelModeAtom ModeArg
+  | UserModeOp ModePolarity UserModeAtom ModeArg
+
+data ModeDelta
+  = Delta
+      { target : ModeTarget
+      , sourceNick : String
+      , operations : List ModeOperation
+      }
+
+data ModeParseError
+  = InvalidModeTarget String
+  | UnsupportedModeSymbol String
+  | ArityMismatch String
+  | InvalidModeArgument String

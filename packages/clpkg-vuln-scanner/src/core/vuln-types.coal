@@ -1,0 +1,55 @@
+module Core.VulnTypes
+  ( VulnSeverity(..)
+  , CvssScore(..)
+  , Vulnerability(..)
+  , ScanTarget(..)
+  , TargetType(..)
+  , ScanPolicy(..)
+  , ScanStatus(..)
+  , ScanResult(..)
+  , Finding(..)
+  , Remediation(..)
+  , RemediationPriority(..)
+  , ComplianceCheck(..)
+  , ComplianceStatus(..)
+  , VulnResult(..)
+  , vuln-is-critical
+  , scan-complete-p
+  , finding-count
+  , remediation-overdue-p
+  ) where
+
+data VulnSeverity = VulnCritical | VulnHigh | VulnMedium | VulnLow | VulnInfo
+data CvssScore = CvssScore Double String -- score vector
+data Vulnerability = Vulnerability String String VulnSeverity CvssScore String (List String)
+  -- cveId description severity cvss affectedProduct references
+data TargetType = Host | WebApp | Container | CloudResource | SourceCode
+data ScanTarget = ScanTarget String TargetType String (List String)
+  -- name targetType address credentials
+data ScanPolicy = ScanPolicy String (List String) Bool Int
+  -- name enabledChecks authenticated timeoutSecs
+data ScanStatus = ScanQueued | ScanRunning Int | ScanComplete Int | ScanFailed String | ScanCancelled
+data ScanResult = ScanResultData String ScanStatus Int (List Finding) Int
+  -- scanId status startedAtUnix findings durationSecs
+data Finding = Finding String Vulnerability ScanTarget String Int
+  -- id vulnerability target evidence foundAtUnix
+data RemediationPriority = RemImmediate | RemShortTerm | RemLongTerm | RemAcceptRisk
+data Remediation = Remediation String String RemediationPriority String Int Bool
+  -- findingId description priority assignee dueByUnix completed
+data ComplianceStatus = Compliant | NonCompliant | NotApplicable | Unknown
+data ComplianceCheck = ComplianceCheck String String String ComplianceStatus String
+  -- checkId framework control status evidence
+data VulnResult a = VulnOk a | VulnErr String
+
+vuln-is-critical :: Vulnerability -> Bool
+vuln-is-critical (Vulnerability _ _ sev _ _ _) = case sev of VulnCritical -> True; _ -> False
+
+scan-complete-p :: ScanStatus -> Bool
+scan-complete-p status = case status of ScanComplete _ -> True; _ -> False
+
+finding-count :: ScanResult -> Int
+finding-count (ScanResultData _ _ _ findings _) = case findings of Nil -> 0; Cons _ xs -> (+ 1 (length xs))
+
+remediation-overdue-p :: Remediation -> Int -> Bool
+remediation-overdue-p (Remediation _ _ _ _ due completed) nowUnix =
+  (and (not completed) (> nowUnix due))

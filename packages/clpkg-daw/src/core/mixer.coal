@@ -1,0 +1,61 @@
+module Core.Mixer
+  ( MixerChannel(..)
+  , Send(..)
+  , Insert(..)
+  , PanLaw(..)
+  , MeterReading(..)
+  , MixerState(..)
+  , MixerResult(..)
+  , channel-is-muted
+  , channel-is-soloed
+  , effective-gain-db
+  ) where
+
+-- DAW mixer model.
+
+-- | Pan law
+data PanLaw
+  = ConstantPower
+  | Linear
+  | CompensatedMinus3
+  | CompensatedMinus6
+
+-- | Send (aux/bus routing)
+data Send
+  = Send String Double Bool  -- targetId gainDb preFader
+
+-- | Insert (effect slot)
+data Insert
+  = Insert String String Bool  -- pluginId pluginName bypassed
+
+-- | Meter reading
+data MeterReading
+  = MeterReading Double Double  -- peakDb rmsDb
+
+-- | Mixer channel
+data MixerChannel
+  = MixerChannel String Double Double PanLaw Bool Bool (List Send) (List Insert)
+  -- name gainDb pan panLaw muted soloed sends inserts
+
+-- | Complete mixer state
+data MixerState
+  = MixerState (List MixerChannel) PanLaw Double
+  -- channels defaultPanLaw masterGainDb
+
+-- | Mixer operation result (total)
+data MixerResult a
+  = MixerOk a
+  | MixerErr String
+
+-- | Check if channel is muted
+channel-is-muted :: MixerChannel -> Bool
+channel-is-muted (MixerChannel _ _ _ _ muted _ _ _) = muted
+
+-- | Check if channel is soloed
+channel-is-soloed :: MixerChannel -> Bool
+channel-is-soloed (MixerChannel _ _ _ _ _ soloed _ _) = soloed
+
+-- | Effective gain (0 if muted)
+effective-gain-db :: MixerChannel -> Double
+effective-gain-db (MixerChannel _ gain _ _ muted _ _ _) =
+  if muted then (- 0.0 infinity) else gain

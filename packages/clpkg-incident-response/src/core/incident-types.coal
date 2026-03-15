@@ -1,0 +1,97 @@
+module Core.IncidentTypes
+  ( Severity(..)
+  , IncidentStatus(..)
+  , Incident(..)
+  , TimelineEntry(..)
+  , TimelineAction(..)
+  , EscalationLevel(..)
+  , EscalationPolicy(..)
+  , Responder(..)
+  , ResponderRole(..)
+  , Evidence(..)
+  , EvidenceType(..)
+  , Playbook(..)
+  , PostMortem(..)
+  , IncidentResult(..)
+  , incident-open-p
+  , incident-age-hours
+  , escalation-needed-p
+  , evidence-count
+  ) where
+
+-- Incident response case tracker domain types.
+
+data Severity = Critical | High | Medium | Low | Informational
+
+data IncidentStatus
+  = Detected
+  | Triaged
+  | Investigating
+  | Contained
+  | Eradicated
+  | Recovered
+  | PostIncident
+  | Closed
+
+data Incident
+  = Incident String String Severity IncidentStatus Int (List String) String
+  -- id title severity status detectedAtUnix tags assignee
+
+data TimelineAction
+  = ActionNote
+  | ActionEscalation
+  | ActionContainment
+  | ActionRemediation
+  | ActionCommunication
+  | ActionEvidence
+
+data TimelineEntry
+  = TimelineEntry Int TimelineAction String String
+  -- timestamp action description author
+
+data EscalationLevel = L1 | L2 | L3 | Executive
+
+data EscalationPolicy
+  = EscalationPolicy String (List EscalationLevel) Int Bool
+  -- name levels timeoutMinutes autoEscalate
+
+data ResponderRole = Coordinator | Analyst | Engineer | Communicator | Observer
+
+data Responder
+  = Responder String String ResponderRole Bool
+  -- name contactInfo role available
+
+data EvidenceType = LogFile | Screenshot | NetworkCapture | MemoryDump | Artifact
+
+data Evidence
+  = Evidence String EvidenceType String String Int
+  -- id evidenceType description storagePath collectedAtUnix
+
+data Playbook
+  = Playbook String String (List String) Severity
+  -- name description steps applicableSeverity
+
+data PostMortem
+  = PostMortem String String String (List String) (List String)
+  -- incidentId summary rootCause lessonsLearned actionItems
+
+data IncidentResult a = IncidentOk a | IncidentErr String
+
+incident-open-p :: IncidentStatus -> Bool
+incident-open-p status = case status of
+  Closed -> False
+  PostIncident -> False
+  _ -> True
+
+incident-age-hours :: Incident -> Int -> Int
+incident-age-hours (Incident _ _ _ _ detected _ _) nowUnix =
+  (div (- nowUnix detected) 3600)
+
+escalation-needed-p :: EscalationPolicy -> Int -> Bool
+escalation-needed-p (EscalationPolicy _ _ timeout _) elapsedMinutes =
+  (> elapsedMinutes timeout)
+
+evidence-count :: List Evidence -> Int
+evidence-count evidence = case evidence of
+  Nil -> 0
+  Cons _ xs -> (+ 1 (length xs))

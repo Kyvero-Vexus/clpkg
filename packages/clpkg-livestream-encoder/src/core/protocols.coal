@@ -1,0 +1,107 @@
+module Core.Protocols
+  ( StreamProtocol(..)
+  , RtmpChunkType(..)
+  , RtmpChunk(..)
+  , RtmpHandshake(..)
+  , HlsSegment(..)
+  , HlsPlaylist(..)
+  , HlsPlaylistType(..)
+  , FlvTag(..)
+  , FlvTagType(..)
+  , FlvHeader(..)
+  , FrameResult(..)
+  , StreamConfig(..)
+  , Bitrate(..)
+  , bitrate-to-bps
+  , bitrate-valid-p
+  ) where
+
+-- Core typed ADTs for livestream protocols.
+-- Total constructors: all paths produce valid data.
+
+-- | Stream protocol identifier
+data StreamProtocol
+  = ProtocolRTMP
+  | ProtocolHLS
+  | ProtocolFLV
+  | ProtocolUnknown
+
+-- | Bitrate representation
+data Bitrate
+  = Kbps Int
+  | Mbps Int
+
+-- | Stream configuration
+data StreamConfig
+  = StreamConfig StreamProtocol Bitrate Int Int  -- protocol bitrate width height
+
+-- | RTMP chunk stream types
+data RtmpChunkType
+  = ChunkType0  -- full header (11 bytes)
+  | ChunkType1  -- no message stream ID (7 bytes)
+  | ChunkType2  -- timestamp delta only (3 bytes)
+  | ChunkType3  -- no header
+
+-- | RTMP chunk
+data RtmpChunk
+  = RtmpChunk Int RtmpChunkType Int Int (List Int)
+  -- csid type timestamp messageLength payload
+
+-- | RTMP handshake phases
+data RtmpHandshake
+  = C0 Int          -- version
+  | C1 Int (List Int) -- timestamp random-data
+  | C2 Int (List Int) -- timestamp echo
+  | S0 Int
+  | S1 Int (List Int)
+  | S2 Int (List Int)
+  | HandshakeComplete
+
+-- | HLS segment descriptor
+data HlsSegment
+  = HlsSegment String Double Int Bool
+  -- uri duration sequence discontinuity
+
+-- | HLS playlist type
+data HlsPlaylistType
+  = MasterPlaylist
+  | MediaPlaylist
+
+-- | HLS playlist
+data HlsPlaylist
+  = HlsPlaylist HlsPlaylistType Int (List HlsSegment)
+  -- type targetDuration segments
+
+-- | FLV tag types
+data FlvTagType
+  = AudioTag
+  | VideoTag
+  | ScriptTag
+
+-- | FLV tag
+data FlvTag
+  = FlvTag FlvTagType Int Int (List Int)
+  -- type timestamp dataSize payload
+
+-- | FLV header
+data FlvHeader
+  = FlvHeader Bool Bool  -- hasAudio hasVideo
+
+-- | Frame operation result (total)
+data FrameResult a
+  = FrameOk a
+  | FrameErr String
+
+-- | Convert bitrate to bits per second
+bitrate-to-bps :: Bitrate -> Int
+bitrate-to-bps br =
+  case br of
+    Kbps k -> (* k 1000)
+    Mbps m -> (* m 1000000)
+
+-- | Validate bitrate is positive
+bitrate-valid-p :: Bitrate -> Bool
+bitrate-valid-p br =
+  case br of
+    Kbps k -> (> k 0)
+    Mbps m -> (> m 0)

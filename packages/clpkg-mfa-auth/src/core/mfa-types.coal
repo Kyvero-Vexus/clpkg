@@ -1,0 +1,47 @@
+module Core.MfaTypes
+  ( OtpAlgorithm(..)
+  , TotpConfig(..)
+  , HotpConfig(..)
+  , MfaMethod(..)
+  , MfaAccount(..)
+  , OtpCode(..)
+  , BackupCode(..)
+  , QrPayload(..)
+  , ExportFormat(..)
+  , MfaGroup(..)
+  , SyncStatus(..)
+  , AuthEvent(..)
+  , MfaConfig(..)
+  , MfaResult(..)
+  , totp-time-remaining
+  , account-is-totp
+  , backup-code-used-p
+  , group-account-count
+  ) where
+
+data OtpAlgorithm = SHA1 | SHA256 | SHA512
+data TotpConfig = TotpConfig String OtpAlgorithm Int Int -- secret algorithm digits period
+data HotpConfig = HotpConfig String OtpAlgorithm Int Int -- secret algorithm digits counter
+data MfaMethod = Totp TotpConfig | Hotp HotpConfig | WebAuthn String | Push String
+data MfaAccount = MfaAccount String String String MfaMethod (List String) -- id issuer label method tags
+data OtpCode = OtpCode String Int Int -- code generatedAtUnix expiresAtUnix
+data BackupCode = BackupCode String Bool Int -- code used usedAtUnix
+data QrPayload = QrPayload String String String -- uri issuer label
+data ExportFormat = GoogleAuth | Aegis | AndOTP | PlainText
+data MfaGroup = MfaGroup String (List MfaAccount) -- name accounts
+data SyncStatus = Synced Int | Unsynced | SyncError String
+data AuthEvent = AuthSuccess String Int | AuthFailure String String Int | AuthLocked String Int
+data MfaConfig = MfaConfig Bool Bool ExportFormat Int -- clipboardClear sortAlpha exportFmt lockTimeoutSecs
+data MfaResult a = MfaOk a | MfaErr String
+
+totp-time-remaining :: TotpConfig -> Int -> Int
+totp-time-remaining (TotpConfig _ _ _ period) nowUnix = (- period (mod nowUnix period))
+
+account-is-totp :: MfaAccount -> Bool
+account-is-totp (MfaAccount _ _ _ method _) = case method of Totp _ -> True; _ -> False
+
+backup-code-used-p :: BackupCode -> Bool
+backup-code-used-p (BackupCode _ used _) = used
+
+group-account-count :: MfaGroup -> Int
+group-account-count (MfaGroup _ accts) = case accts of Nil -> 0; Cons _ xs -> (+ 1 (length xs))

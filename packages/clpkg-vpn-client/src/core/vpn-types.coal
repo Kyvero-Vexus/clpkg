@@ -1,0 +1,49 @@
+module Core.VpnTypes
+  ( VpnProtocol(..)
+  , TunnelState(..)
+  , VpnConfig(..)
+  , Endpoint(..)
+  , Certificate(..)
+  , CertStatus(..)
+  , DnsConfig(..)
+  , SplitTunnelRule(..)
+  , SplitTunnelMode(..)
+  , ConnectionStats(..)
+  , VpnProfile(..)
+  , KillSwitchMode(..)
+  , VpnEvent(..)
+  , VpnResult(..)
+  , tunnel-connected-p
+  , cert-valid-p
+  , connection-uptime-secs
+  , kill-switch-active-p
+  ) where
+
+data VpnProtocol = WireGuard | OpenVPN | IPSec | L2TP | SSTP
+data TunnelState = Disconnected | Connecting | Connected Int | Reconnecting Int | Error String
+data Endpoint = Endpoint String Int String String -- host port region country
+data Certificate = Certificate String CertStatus Int Int -- fingerprint status issuedAtUnix expiresAtUnix
+data CertStatus = CertValid | CertExpired | CertRevoked | CertPending
+data DnsConfig = DnsConfig (List String) Bool Bool -- servers dnsSec dnsOverHttps
+data SplitTunnelMode = AllTraffic | SplitInclude | SplitExclude
+data SplitTunnelRule = SplitTunnelRule String SplitTunnelMode (List String) -- name mode cidrs
+data VpnConfig = VpnConfig String VpnProtocol Endpoint Certificate DnsConfig SplitTunnelRule
+  -- name protocol endpoint cert dns splitTunnel
+data ConnectionStats = ConnectionStats Int Int Int Int Int
+  -- bytesSent bytesReceived latencyMs packetsLost uptimeSecs
+data VpnProfile = VpnProfile String VpnConfig Bool Bool -- name config autoConnect onBoot
+data KillSwitchMode = KillSwitchOff | KillSwitchOn | KillSwitchAlwaysOn
+data VpnEvent = VpnConnected String Int | VpnDisconnected String String | VpnError String String | VpnReconnect String Int
+data VpnResult a = VpnOk a | VpnErr String
+
+tunnel-connected-p :: TunnelState -> Bool
+tunnel-connected-p state = case state of Connected _ -> True; _ -> False
+
+cert-valid-p :: Certificate -> Bool
+cert-valid-p (Certificate _ status _ _) = case status of CertValid -> True; _ -> False
+
+connection-uptime-secs :: ConnectionStats -> Int
+connection-uptime-secs (ConnectionStats _ _ _ _ uptime) = uptime
+
+kill-switch-active-p :: KillSwitchMode -> Bool
+kill-switch-active-p mode = case mode of KillSwitchOff -> False; _ -> True

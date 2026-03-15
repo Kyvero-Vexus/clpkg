@@ -1,0 +1,130 @@
+module Core.GraphTypes
+  ( PropertyValue(..)
+  , NodeLabel(..)
+  , GraphNode(..)
+  , EdgeType(..)
+  , GraphEdge(..)
+  , TraversalDirection(..)
+  , TraversalStep(..)
+  , PathResult(..)
+  , GraphPattern(..)
+  , MatchClause(..)
+  , GraphIndex(..)
+  , GraphTransaction(..)
+  , GraphConfig(..)
+  , GraphResult(..)
+  , node-has-label
+  , edge-connects
+  , path-length
+  , pattern-node-count
+  ) where
+
+-- Graph database domain types.
+
+-- | Property value
+data PropertyValue
+  = PropString String
+  | PropInt Int
+  | PropFloat Double
+  | PropBool Bool
+  | PropList (List PropertyValue)
+  | PropNull
+
+-- | Node label
+data NodeLabel
+  = NodeLabel String
+
+-- | Graph node
+data GraphNode
+  = GraphNode String (List NodeLabel) (List (Tuple String PropertyValue))
+  -- id labels properties
+
+-- | Edge type
+data EdgeType
+  = EdgeType String
+
+-- | Graph edge
+data GraphEdge
+  = GraphEdge String String String EdgeType (List (Tuple String PropertyValue))
+  -- id sourceNodeId targetNodeId edgeType properties
+
+-- | Traversal direction
+data TraversalDirection
+  = Outgoing
+  | Incoming
+  | Both
+
+-- | Traversal step
+data TraversalStep
+  = ExpandEdge EdgeType TraversalDirection
+  | FilterLabel NodeLabel
+  | FilterProperty String PropertyValue
+  | LimitDepth Int
+
+-- | Path result
+data PathResult
+  = PathResult (List GraphNode) (List GraphEdge) Int
+  -- nodes edges length
+
+-- | Graph pattern (for pattern matching queries)
+data GraphPattern
+  = NodePattern (Maybe NodeLabel) (List (Tuple String PropertyValue))
+  | EdgePattern (Maybe EdgeType) TraversalDirection
+  | PathPattern (List GraphPattern) Int Int -- steps minLength maxLength
+
+-- | Match clause
+data MatchClause
+  = MatchClause GraphPattern Bool  -- pattern optional
+
+-- | Graph index
+data GraphIndex
+  = LabelIndex NodeLabel
+  | PropertyIndex NodeLabel String  -- label propertyKey
+  | FullTextIndex NodeLabel (List String) -- label properties
+  | EdgeTypeIndex EdgeType
+
+-- | Graph transaction
+data GraphTransaction
+  = TxReadOnly
+  | TxReadWrite
+  | TxBatch Int  -- batchSize
+
+-- | Graph config
+data GraphConfig
+  = GraphConfig String Int Int Bool (List GraphIndex)
+  -- dataDir maxNodes maxEdges persistEnabled indices
+
+-- | Graph result (total)
+data GraphResult a
+  = GraphOk a
+  | GraphErr String
+
+-- | Does node have label?
+node-has-label :: GraphNode -> NodeLabel -> Bool
+node-has-label (GraphNode _ labels _) (NodeLabel target) =
+  case labels of
+    Nil -> False
+    Cons (NodeLabel l) xs ->
+      if (== l target) then True
+      else node-has-label (GraphNode "" xs Nil) (NodeLabel target)
+
+-- | Does edge connect two specific nodes?
+edge-connects :: GraphEdge -> String -> String -> Bool
+edge-connects (GraphEdge _ src tgt _ _) a b =
+  (and (== src a) (== tgt b))
+
+-- | Path length
+path-length :: PathResult -> Int
+path-length (PathResult _ _ len) = len
+
+-- | Count nodes in pattern
+pattern-node-count :: GraphPattern -> Int
+pattern-node-count pat =
+  case pat of
+    NodePattern _ _ -> 1
+    EdgePattern _ _ -> 0
+    PathPattern steps _ _ ->
+      case steps of
+        Nil -> 0
+        Cons s xs -> (+ (pattern-node-count s)
+                        (pattern-node-count (PathPattern xs 0 0)))

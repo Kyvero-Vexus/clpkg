@@ -1,0 +1,99 @@
+module Core.Formats
+  ( SubtitleFormat(..)
+  , TimedCue(..)
+  , Timestamp(..)
+  , CueStyle(..)
+  , StyleTag(..)
+  , SrtEntry(..)
+  , VttCue(..)
+  , VttHeader(..)
+  , AssStyle(..)
+  , AssDialogue(..)
+  , AssScript(..)
+  , ParseResult(..)
+  , timestamp-to-ms
+  , ms-to-timestamp
+  , timestamp-valid-p
+  ) where
+
+-- Core typed ADTs for subtitle formats (SRT, VTT, ASS/SSA).
+-- Total constructors: no partial functions, all paths return valid data.
+
+-- | Unified timestamp representation
+data Timestamp
+  = Timestamp Int Int Int Int  -- hours minutes seconds milliseconds
+
+-- | Styling tags for rich subtitles
+data StyleTag
+  = Bold
+  | Italic
+  | Underline
+  | FontColor String
+  | FontSize Int
+
+-- | Cue styling metadata
+data CueStyle
+  = NoStyle
+  | WithStyles (List StyleTag)
+
+-- | Universal timed cue (format-independent)
+data TimedCue
+  = TimedCue Timestamp Timestamp String CueStyle
+
+-- | Which subtitle format a file uses
+data SubtitleFormat
+  = FormatSRT
+  | FormatVTT
+  | FormatASS
+  | FormatSSA
+  | FormatUnknown
+
+-- | SRT entry: index + timed cue
+data SrtEntry
+  = SrtEntry Int TimedCue
+
+-- | VTT header metadata
+data VttHeader
+  = VttHeader String (List String)  -- kind, regions
+
+-- | VTT cue with optional identifier
+data VttCue
+  = VttCue (Maybe String) TimedCue
+
+-- | ASS style definition
+data AssStyle
+  = AssStyle String String Int String  -- name fontname fontsize colors
+
+-- | ASS dialogue event
+data AssDialogue
+  = AssDialogue Int String Timestamp Timestamp String String  -- layer style start end name text
+
+-- | Complete ASS script
+data AssScript
+  = AssScript String (List AssStyle) (List AssDialogue)  -- title styles dialogues
+
+-- | Parse result (total: always returns)
+data ParseResult a
+  = ParseOk a
+  | ParseErr String
+
+-- | Convert timestamp to total milliseconds
+timestamp-to-ms :: Timestamp -> Int
+timestamp-to-ms (Timestamp h m s ms) =
+  (+ (* h 3600000) (* m 60000) (* s 1000) ms)
+
+-- | Convert milliseconds to timestamp
+ms-to-timestamp :: Int -> Timestamp
+ms-to-timestamp total =
+  let h = (div total 3600000)
+      rem1 = (mod total 3600000)
+      m = (div rem1 60000)
+      rem2 = (mod rem1 60000)
+      s = (div rem2 1000)
+      ms = (mod rem2 1000)
+  in Timestamp h m s ms
+
+-- | Validate timestamp components are in range
+timestamp-valid-p :: Timestamp -> Bool
+timestamp-valid-p (Timestamp h m s ms) =
+  (and (>= h 0) (>= m 0) (< m 60) (>= s 0) (< s 60) (>= ms 0) (< ms 1000))

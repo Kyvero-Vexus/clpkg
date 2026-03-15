@@ -1,0 +1,124 @@
+module Core.MigrationTypes
+  ( MigrationDirection(..)
+  , MigrationStatus(..)
+  , MigrationStep(..)
+  , MigrationPlan(..)
+  , SchemaVersion(..)
+  , ColumnChange(..)
+  , TableChange(..)
+  , IndexChange(..)
+  , SchemaDiff(..)
+  , RollbackStrategy(..)
+  , MigrationConfig(..)
+  , MigrationLog(..)
+  , LockStatus(..)
+  , MigrationResult(..)
+  , migration-pending-p
+  , plan-step-count
+  , diff-has-destructive
+  , version-newer-p
+  ) where
+
+-- Database migration domain types.
+
+-- | Migration direction
+data MigrationDirection
+  = Up
+  | Down
+
+-- | Migration status
+data MigrationStatus
+  = Pending
+  | Running
+  | Applied Int     -- appliedAtUnix
+  | Failed String Int -- error failedAtUnix
+  | RolledBack Int  -- rolledBackAtUnix
+
+-- | Migration step
+data MigrationStep
+  = MigrationStep String Int MigrationDirection String String
+  -- name version direction upSql downSql
+
+-- | Migration plan
+data MigrationPlan
+  = MigrationPlan (List MigrationStep) Int Int
+  -- steps currentVersion targetVersion
+
+-- | Schema version
+data SchemaVersion
+  = SchemaVersion Int String Int Bool
+  -- version checksum appliedAtUnix dirty
+
+-- | Column change
+data ColumnChange
+  = AddColumn String String Bool    -- name type nullable
+  | DropColumn String
+  | AlterColumn String String String -- name oldType newType
+  | RenameColumn String String      -- oldName newName
+
+-- | Table change
+data TableChange
+  = CreateTable String (List ColumnChange)
+  | DropTable String
+  | RenameTable String String
+  | AlterTable String (List ColumnChange)
+
+-- | Index change
+data IndexChange
+  = CreateIndex String String (List String) Bool -- name table columns unique
+  | DropIndex String
+
+-- | Schema diff
+data SchemaDiff
+  = SchemaDiff (List TableChange) (List IndexChange) Bool
+  -- tables indices hasDestructive
+
+-- | Rollback strategy
+data RollbackStrategy
+  = AutoRollback
+  | ManualRollback
+  | NoRollback
+
+-- | Migration config
+data MigrationConfig
+  = MigrationConfig String String RollbackStrategy Bool Int
+  -- migrationsDir tableName rollback dryRun lockTimeoutMs
+
+-- | Migration log entry
+data MigrationLog
+  = MigrationLog Int MigrationDirection MigrationStatus Int String
+  -- version direction status timestamp executedBy
+
+-- | Lock status
+data LockStatus
+  = Unlocked
+  | Locked String Int   -- owner lockedAtUnix
+  | LockExpired String  -- previousOwner
+
+-- | Migration result (total)
+data MigrationResult a
+  = MigrationOk a
+  | MigrationErr String
+
+-- | Is migration pending?
+migration-pending-p :: MigrationStatus -> Bool
+migration-pending-p status =
+  case status of
+    Pending -> True
+    _       -> False
+
+-- | Count steps in plan
+plan-step-count :: MigrationPlan -> Int
+plan-step-count (MigrationPlan steps _ _) =
+  case steps of
+    Nil -> 0
+    Cons _ xs -> (+ 1 (length xs))
+
+-- | Does diff contain destructive changes?
+diff-has-destructive :: SchemaDiff -> Bool
+diff-has-destructive (SchemaDiff _ _ hasDestructive) = hasDestructive
+
+-- | Is version a newer than b?
+version-newer-p :: SchemaVersion -> SchemaVersion -> Bool
+version-newer-p (SchemaVersion va _ _ _) (SchemaVersion vb _ _ _) =
+  (> va vb)

@@ -1,0 +1,48 @@
+module Core.BlockerTypes
+  ( FilterType(..)
+  , FilterRule(..)
+  , FilterList(..)
+  , BlockAction(..)
+  , BlockResult(..)
+  , RequestType(..)
+  , ContentPolicy(..)
+  , Whitelist(..)
+  , Statistics(..)
+  , CosmeticRule(..)
+  , ScriptletInjection(..)
+  , DnsBlockEntry(..)
+  , UpdateSchedule(..)
+  , BlockerResult(..)
+  , rule-is-block
+  , request-blocked-p
+  , block-rate-pct
+  , list-rule-count
+  ) where
+
+data FilterType = UrlFilter | DomainFilter | RegexFilter | CosmeticFilter | ScriptletFilter
+data FilterRule = FilterRule String FilterType String Bool Int -- id filterType pattern enabled priority
+data FilterList = FilterList String String (List FilterRule) Int Bool -- name url rules lastUpdatedUnix enabled
+data BlockAction = Block | Allow | Redirect String | Modify String
+data BlockResult = BlockResult String BlockAction String Int -- url action matchedRule timestamp
+data RequestType = MainFrame | SubFrame | Script | Stylesheet | ImageReq | Font | XmlHttpRequest | WebSocket | Other
+data ContentPolicy = ContentPolicy (List RequestType) Bool Bool -- blockedTypes blockThirdParty blockCookies
+data Whitelist = Whitelist String (List String) Bool -- name domains enabled
+data Statistics = Statistics Int Int Int Int Int -- totalRequests blocked allowed redirected savedBytes
+data CosmeticRule = CosmeticRule String String Bool -- selector domain enabled
+data ScriptletInjection = ScriptletInjection String String (List String) -- name scriptlet args
+data DnsBlockEntry = DnsBlockEntry String String Int -- domain targetIp addedAtUnix
+data UpdateSchedule = UpdateSchedule Int Int Bool -- intervalHours lastCheckUnix autoUpdate
+data BlockerResult a = BlockerOk a | BlockerErr String
+
+rule-is-block :: FilterRule -> Bool
+rule-is-block (FilterRule _ _ _ enabled _) = enabled
+
+request-blocked-p :: BlockAction -> Bool
+request-blocked-p action = case action of Block -> True; _ -> False
+
+block-rate-pct :: Statistics -> Int
+block-rate-pct (Statistics total blocked _ _ _) =
+  if (== total 0) then 0 else (div (* blocked 100) total)
+
+list-rule-count :: FilterList -> Int
+list-rule-count (FilterList _ _ rules _ _) = case rules of Nil -> 0; Cons _ xs -> (+ 1 (length xs))

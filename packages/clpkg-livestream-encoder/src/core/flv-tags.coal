@@ -1,0 +1,37 @@
+module Core.FlvTags
+  ( make-flv-header
+  , make-flv-tag
+  , flv-tag-type-id
+  , serialize-flv-header
+  ) where
+
+import Core.Protocols
+
+-- | Construct FLV header
+make-flv-header :: Bool -> Bool -> FrameResult FlvHeader
+make-flv-header hasAudio hasVideo =
+  if (not (or hasAudio hasVideo))
+    then FrameErr "FLV must have at least one track (audio or video)"
+    else FrameOk (FlvHeader hasAudio hasVideo)
+
+-- | Construct FLV tag with validation
+make-flv-tag :: FlvTagType -> Int -> List Int -> FrameResult FlvTag
+make-flv-tag tagType timestamp payload =
+  if (< timestamp 0)
+    then FrameErr "FLV tag timestamp must be non-negative"
+    else FrameOk (FlvTag tagType timestamp (length payload) payload)
+
+-- | Get numeric tag type ID
+flv-tag-type-id :: FlvTagType -> Int
+flv-tag-type-id tt =
+  case tt of
+    AudioTag  -> 8
+    VideoTag  -> 9
+    ScriptTag -> 18
+
+-- | Serialize FLV header bytes (skeleton)
+serialize-flv-header :: FlvHeader -> List Int
+serialize-flv-header (FlvHeader hasAudio hasVideo) =
+  let flags = (+ (if hasAudio 4 0) (if hasVideo 1 0))
+  in (Cons 70 (Cons 76 (Cons 86 (Cons 1 (Cons flags Nil)))))
+  -- F L V version flags

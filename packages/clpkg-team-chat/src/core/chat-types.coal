@@ -1,0 +1,49 @@
+module Core.ChatTypes
+  ( ChannelType(..)
+  , Channel(..)
+  , Message(..)
+  , MessageType(..)
+  , Reaction(..)
+  , ThreadReply(..)
+  , UserPresence(..)
+  , PresenceStatus(..)
+  , Workspace(..)
+  , Integration(..)
+  , IntegrationStatus(..)
+  , SearchFilter(..)
+  , Mention(..)
+  , ChatResult(..)
+  , channel-is-dm
+  , message-has-thread
+  , user-online-p
+  , workspace-channel-count
+  ) where
+
+data ChannelType = PublicChannel | PrivateChannel | DirectMessage | GroupDM
+data Channel = Channel String String ChannelType String Int Int Bool
+  -- id name channelType topic memberCount unreadCount archived
+data MessageType = TextMessage | FileShare | SystemMessage | BotMessage
+data Message = Message String String String MessageType String Int (List Reaction) (Maybe String)
+  -- id channelId authorId messageType content timestamp reactions threadId
+data Reaction = Reaction String String Int -- emoji userId timestamp
+data ThreadReply = ThreadReply String String String Int -- messageId replyId authorId timestamp
+data PresenceStatus = Online | Away | DoNotDisturb | Offline
+data UserPresence = UserPresence String PresenceStatus String Int -- userId status statusText lastSeenUnix
+data Workspace = Workspace String String (List Channel) Int -- id name channels memberCount
+data IntegrationStatus = IntEnabled | IntDisabled | IntError String
+data Integration = Integration String String IntegrationStatus String -- id name status webhookUrl
+data SearchFilter = InChannel String | FromUser String | HasFile | BeforeDate Int | AfterDate Int
+data Mention = MentionUser String | MentionChannel String | MentionEveryone | MentionHere
+data ChatResult a = ChatOk a | ChatErr String
+
+channel-is-dm :: Channel -> Bool
+channel-is-dm (Channel _ _ ct _ _ _ _) = case ct of DirectMessage -> True; GroupDM -> True; _ -> False
+
+message-has-thread :: Message -> Bool
+message-has-thread (Message _ _ _ _ _ _ _ threadId) = case threadId of Just _ -> True; Nothing -> False
+
+user-online-p :: UserPresence -> Bool
+user-online-p (UserPresence _ status _ _) = case status of Online -> True; _ -> False
+
+workspace-channel-count :: Workspace -> Int
+workspace-channel-count (Workspace _ _ channels _) = case channels of Nil -> 0; Cons _ xs -> (+ 1 (length xs))

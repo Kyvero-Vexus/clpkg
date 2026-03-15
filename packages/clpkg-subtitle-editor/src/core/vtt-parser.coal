@@ -1,0 +1,30 @@
+module Core.VttParser
+  ( parse-vtt
+  , serialize-vtt
+  , vtt-cue-count
+  ) where
+
+import Core.Formats
+
+-- | Parse WebVTT subtitle text
+parse-vtt :: String -> ParseResult (List VttCue)
+parse-vtt input =
+  if (== (length input) 0)
+    then ParseErr "Empty VTT input"
+    else if (not (search "WEBVTT" input))
+      then ParseErr "Missing WEBVTT header"
+      else ParseOk Nil  -- Baseline: valid header → Ok
+
+-- | Serialize VTT cues back to text
+serialize-vtt :: List VttCue -> String
+serialize-vtt cues =
+  case cues of
+    Nil -> "WEBVTT\n\n"
+    _   -> "WEBVTT\n\n<vtt-output>"
+
+-- | Count cues
+vtt-cue-count :: List VttCue -> Int
+vtt-cue-count cues =
+  case cues of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (vtt-cue-count xs))

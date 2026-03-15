@@ -1,0 +1,28 @@
+module Core.AssParser
+  ( parse-ass
+  , serialize-ass
+  , ass-dialogue-count
+  ) where
+
+import Core.Formats
+
+-- | Parse ASS/SSA subtitle script
+parse-ass :: String -> ParseResult AssScript
+parse-ass input =
+  if (== (length input) 0)
+    then ParseErr "Empty ASS input"
+    else if (not (search "[Script Info]" input))
+      then ParseErr "Missing [Script Info] section"
+      else ParseOk (AssScript "Untitled" Nil Nil)  -- Baseline
+
+-- | Serialize ASS script back to text
+serialize-ass :: AssScript -> String
+serialize-ass (AssScript title _ _) =
+  concatenate "[Script Info]\nTitle: " title "\n"
+
+-- | Count dialogue events
+ass-dialogue-count :: AssScript -> Int
+ass-dialogue-count (AssScript _ _ dialogues) =
+  case dialogues of
+    Nil       -> 0
+    Cons _ xs -> (+ 1 (length xs))
