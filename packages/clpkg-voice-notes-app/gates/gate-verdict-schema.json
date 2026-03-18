@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Voice Notes Gate Verdict",
+  "type": "object",
+  "required": ["bead", "timestamp", "security", "performance", "e2e", "overall"],
+  "properties": {
+    "bead": {"type": "string"},
+    "timestamp": {"type": "string"},
+    "security": {"type": "string", "enum": ["pass", "fail"]},
+    "performance": {
+      "type": "object",
+      "required": ["p95_ms", "budget_ms", "status"],
+      "properties": {
+        "p95_ms": {"type": "integer"},
+        "budget_ms": {"type": "integer"},
+        "status": {"type": "string", "enum": ["pass", "fail"]}
+      }
+    },
+    "e2e": {"type": "string", "enum": ["pass", "fail"]},
+    "overall": {"type": "string", "enum": ["pass", "fail"]}
+  }
+}
