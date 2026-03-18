@@ -1,0 +1,45 @@
+module Core.VoiceNotesTypes
+  ( AudioCodec(..)
+  , IngestSource(..)
+  , VoiceNoteDraft(..)
+  , VoiceNoteTranscript(..)
+  , VoiceNoteValidated(..)
+  , VoiceNoteIndexed(..)
+  , VoiceNoteArtifact(..)
+  , PipelineError(..)
+  , PipelineResult(..)
+  , deterministic-note-id
+  , transcript-nonempty-p
+  ) where
+
+data AudioCodec = Wav | Flac | OggOpus | Mp3
+data IngestSource = FileSource String | BufferSource String
+data VoiceNoteDraft = VoiceNoteDraft String IngestSource AudioCodec Int String
+  -- noteId source codec capturedAtUnix checksum
+
+data VoiceNoteTranscript = VoiceNoteTranscript String String Double
+  -- noteId transcript confidence
+
+data VoiceNoteValidated = VoiceNoteValidated String String Bool
+  -- noteId transcript piiRedacted
+
+data VoiceNoteIndexed = VoiceNoteIndexed String String (List String)
+  -- noteId indexVersion tags
+
+data VoiceNoteArtifact = VoiceNoteArtifact String String Int
+  -- noteId artifactPath emittedAtUnix
+
+data PipelineError = IngestError String | TranscriptionError String | ValidationError String | IndexError String | EmitError String
+data PipelineResult a = PipeOk a | PipeErr PipelineError
+
+deterministic-note-id :: String -> Int -> AudioCodec -> String -> String
+deterministic-note-id source captured codec checksum =
+  let codecTag = case codec of
+    Wav -> "wav"; Flac -> "flac"; OggOpus -> "ogg-opus"; Mp3 -> "mp3"
+  in source ++ ":" ++ codecTag ++ ":" ++ checksum ++ ":" ++ (show captured)
+
+transcript-nonempty-p :: VoiceNoteTranscript -> Bool
+transcript-nonempty-p (VoiceNoteTranscript _ t _) =
+  case t of
+    "" -> False
+    _ -> True
