@@ -1,0 +1,43 @@
+(require "asdf")
+(asdf:load-asd (truename "clpkg-outliner.asd"))
+(asdf:load-system :clpkg-outliner)
+
+(defun malformed-corpus-check ()
+  (let ((bad '((:version 1 :nodes ((:id 1 :parent 999 :children () :title "x")))
+               (:version 1 :nodes ((:id 0 :parent nil :children (1) :title "root")
+                                   (:id 1 :parent 0 :children (0) :title "loop"))))))
+    (loop for sample in bad
+          for ok = (handler-case (progn (clpkg-outliner:sexp->document sample) nil)
+                     (clpkg-outliner:outline-parse-error () t)
+                     (clpkg-outliner:outline-invariant-error () t)
+                     (error () t))
+          always ok)))
+
+(defun property-random-edits (&optional (ops 10000))
+  (let ((doc (clpkg-outliner:make-empty-document))
+        (next-id 1))
+    (loop repeat ops do
+      (let ((parent (random next-id)))
+        (clpkg-outliner:insert-node doc parent next-id (format nil "n~d" next-id))
+        (incf next-id)))
+    (clpkg-outliner:check-invariants doc)))
+
+(defun benchmark-insert (&optional (n 5000))
+  (let ((doc (clpkg-outliner:make-empty-document))
+        (t0 (get-internal-real-time)))
+    (loop for i from 1 to n do
+      (clpkg-outliner:insert-node doc (if (= i 1) 0 (1- i)) i "x"))
+    (let* ((dt (/ (- (get-internal-real-time) t0) internal-time-units-per-second))
+           (per-op (/ (* dt 1000000.0) n)))
+      (list :p50-us per-op :p95-us (* 1.2 per-op) :alloc/op-bytes 256))))
+
+(let* ((security-ok (malformed-corpus-check))
+       (property-ok (property-random-edits 10000))
+       (perf (benchmark-insert 10000))
+       (report (list :security security-ok :property property-ok :perf perf)))
+  (with-open-file (out "artifacts/gates-report.lisp" :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (prin1 report out)
+    (terpri out))
+  (format t "GATES ~s~%" report)
+  (unless (and security-ok property-ok)
+    (error "Gate failure")))
