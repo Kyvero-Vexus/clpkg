@@ -1,0 +1,23 @@
+(in-package #:clpkg-tui-system-monitor)
+
+(defstruct (monitor-config (:conc-name mcfg-))
+  (poll-interval-ms 1000 :type integer)
+  (sample-window 60 :type integer)
+  (host-label "localhost" :type string))
+
+(defstruct (monitor-snapshot (:conc-name msnap-))
+  (timestamp 0 :type integer)
+  (cpu-percent 0.0d0 :type double-float)
+  (mem-percent 0.0d0 :type double-float)
+  (proc-count 0 :type integer)
+  (net-rx-bytes 0 :type integer)
+  (net-tx-bytes 0 :type integer))
+
+(defstruct (snapshot-delta (:conc-name sdel-))
+  (from-ts 0 :type integer)
+  (to-ts 0 :type integer)
+  (cpu-delta 0.0d0 :type double-float)
+  (mem-delta 0.0d0 :type double-float)
+  (proc-delta 0 :type integer)
+  (net-rx-delta 0 :type integer)
+  (net-tx-delta 0 :type integer))
