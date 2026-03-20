@@ -1,0 +1,11 @@
+(in-package #:clpkg-plain-text-editor)
+
+(defun validate-buffer (snapshot)
+  (declare (type text-buffer-snapshot snapshot))
+  (let ((content (text-buffer-snapshot-content snapshot))
+        (out '()))
+    (when (search "\t" content)
+      (push (make-text-diagnostic :code "TAB" :message "Tab character present" :severity :warning :offset 0) out))
+    (when (> (length content) 100000)
+      (push (make-text-diagnostic :code "SIZE" :message "Large file" :severity :info :offset 0) out))
+    (sort out #'string< :key #'text-diagnostic-code)))

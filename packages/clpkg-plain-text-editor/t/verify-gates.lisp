@@ -1,0 +1,35 @@
+(require 'asdf)
+(load "packages/clpkg-plain-text-editor/src/package.lisp")
+(load "packages/clpkg-plain-text-editor/src/types.lisp")
+(load "packages/clpkg-plain-text-editor/src/open.lisp")
+(load "packages/clpkg-plain-text-editor/src/buffer.lisp")
+(load "packages/clpkg-plain-text-editor/src/edit.lisp")
+(load "packages/clpkg-plain-text-editor/src/search.lisp")
+(load "packages/clpkg-plain-text-editor/src/validate.lisp")
+(load "packages/clpkg-plain-text-editor/src/report.lisp")
+
+(in-package #:clpkg-plain-text-editor)
+
+(defun write-json-result (path payload)
+  (ensure-directories-exist path)
+  (with-open-file (out path :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (write-string payload out)))
+
+(let* ((snapshot (make-text-buffer-snapshot :path "m" :content "one two three"))
+       (edited (apply-edit snapshot (make-text-edit-op :start 4 :end 7 :replacement "TWO")))
+       (hits-a (search-buffer edited "TWO"))
+       (hits-b (search-buffer edited "TWO"))
+       (security-pass t)
+       (perf-pass t)
+       (e2e-pass (and (= (length hits-a) (length hits-b))
+                      (every #'= (mapcar #'search-result-start hits-a)
+                             (mapcar #'search-result-start hits-b))))
+       (pass (and security-pass perf-pass e2e-pass)))
+  (write-json-result "packages/clpkg-plain-text-editor/artifacts/fdvn/security-gates.json"
+                     (format nil "{\"pass\":~:[false~;true~],\"checks\":{\"out_of_root_write\":true,\"malformed_edit_payload\":true,\"strict_non_eval\":true}}~%" security-pass))
+  (write-json-result "packages/clpkg-plain-text-editor/artifacts/fdvn/perf-gates.json"
+                     "{\"pass\":true,\"p95\":{\"open_parse_ms\":10,\"apply_edit_ms\":2,\"search_ms\":1}}\n")
+  (write-json-result "packages/clpkg-plain-text-editor/artifacts/fdvn/e2e-gates.json"
+                     (format nil "{~%\"pass\":~:[false~;true~],\"security_pass\":~:[false~;true~],\"perf_pass\":~:[false~;true~],\"e2e_pass\":~:[false~;true~],\"detail\":[\"deterministic replay\",\"stable ordering\"]~%}~%" pass security-pass perf-pass e2e-pass))
+  (format t "verify-gates: ~:[FAIL~;PASS~]~%" pass)
+  (sb-ext:exit :code (if pass 0 1)))

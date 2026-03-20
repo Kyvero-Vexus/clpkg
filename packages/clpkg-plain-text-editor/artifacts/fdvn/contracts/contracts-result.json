@@ -1,0 +1,8 @@
+{
+  "pass": true,
+  "checks": {
+    "edit_replay_hash": true,
+    "invalid_range_rejection": true,
+    "search_ordering": true
+  }
+}

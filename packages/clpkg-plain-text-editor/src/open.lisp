@@ -1,0 +1,15 @@
+(in-package #:clpkg-plain-text-editor)
+
+(defun open-buffer (path)
+  (declare (type string path))
+  (with-open-file (in path :direction :input)
+    (let ((content (make-string (file-length in))))
+      (read-sequence content in)
+      (make-text-buffer-snapshot :path path :content content))))
+
+(defun save-buffer (snapshot path)
+  (declare (type text-buffer-snapshot snapshot)
+           (type string path))
+  (with-open-file (out path :direction :output :if-exists :supersede :if-does-not-exist :create)
+    (write-string (text-buffer-snapshot-content snapshot) out))
+  path)
