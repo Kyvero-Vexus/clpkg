@@ -1,7 +1,14 @@
 (in-package #:clpkg-plain-text-editor)
 
+(defun %unsafe-path-p (path)
+  (declare (type string path))
+  (or (search ".." path)
+      (position #\Null path)))
+
 (defun open-buffer (path)
   (declare (type string path))
+  (when (%unsafe-path-p path)
+    (error "Unsafe path rejected: ~a" path))
   (with-open-file (in path :direction :input)
     (let ((content (make-string (file-length in))))
       (read-sequence content in)
@@ -10,6 +17,8 @@
 (defun save-buffer (snapshot path)
   (declare (type text-buffer-snapshot snapshot)
            (type string path))
+  (when (%unsafe-path-p path)
+    (error "Unsafe path rejected: ~a" path))
   (with-open-file (out path :direction :output :if-exists :supersede :if-does-not-exist :create)
     (write-string (text-buffer-snapshot-content snapshot) out))
   path)
