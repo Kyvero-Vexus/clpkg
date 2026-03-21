@@ -1,0 +1,17 @@
+(require 'asdf)
+(asdf:load-asd "/home/slime/projects/clpkg/packages/clpkg-serial-console-client/clpkg-serial-console-client.asd")
+(asdf:load-system "clpkg-serial-console-client")
+
+(let* ((report (clpkg-serial-console-client:build-gate-scaffold))
+       (results (getf report :verification)))
+  (format t "Serial S1-S6 verification report~%")
+  (dolist (r results)
+    (format t "~A: ~A (~A)~%"
+            (string-upcase (symbol-name (getf r :id)))
+            (if (getf r :passed) "PASS" "FAIL")
+            (getf r :detail)))
+  (format t "Security gate: ~A~%" (getf (getf report :security-gate) :status))
+  (format t "Performance gate: ~A~%" (getf (getf report :performance-gate) :status))
+  (format t "Release gate: ~A~%" (getf (getf report :release-gate) :status))
+  (unless (every (lambda (r) (getf r :passed)) results)
+    (uiop:quit 1)))

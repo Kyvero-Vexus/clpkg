@@ -5,4 +5,5 @@
   :serial t
   :components
   ((:file "src/package")
-   (:file "src/model")))
+   (:file "src/model")
+   (:file "src/verification")))

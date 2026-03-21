@@ -4,4 +4,6 @@
    #:serial-port-profile #:serial-port-profile-p #:make-serial-port-profile
    #:serial-session #:serial-session-p #:make-serial-session
    #:serial-connection-state
-   #:build-serial-session-summary))
+   #:build-serial-session-summary
+   #:run-s1-s6-verification
+   #:build-gate-scaffold))
