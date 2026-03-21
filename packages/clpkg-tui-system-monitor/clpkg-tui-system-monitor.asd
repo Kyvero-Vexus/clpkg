@@ -5,4 +5,6 @@
   :serial t
   :components
   ((:file "src/package")
-   (:file "src/types")))
+   (:file "src/types")
+   (:file "src/collector-interfaces")
+   (:file "src/normalization")))
