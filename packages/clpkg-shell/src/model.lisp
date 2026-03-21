@@ -1,0 +1,28 @@
+(in-package #:clpkg-shell)
+
+(deftype shell-state () '(member :new :running :closed :error))
+
+(defstruct (shell-session (:conc-name ss-))
+  (session-id "" :type string)
+  (state :new :type shell-state)
+  (cwd "." :type string)
+  (shell "/bin/bash" :type string)
+  (env-keys '() :type list)
+  (last-error "" :type string))
+
+(defstruct (command-result (:conc-name cr-))
+  (command "" :type string)
+  (exit-code 0 :type integer)
+  (stdout "" :type string)
+  (stderr "" :type string)
+  (elapsed-ms 0.0d0 :type double-float)
+  (pass-p nil :type boolean))
+
+(defun shell-session-summary (session)
+  (declare (type shell-session session)
+           (optimize (safety 3)))
+  (list :session-id (ss-session-id session)
+        :state (ss-state session)
+        :cwd (ss-cwd session)
+        :shell (ss-shell session)
+        :env-key-count (length (ss-env-keys session))))

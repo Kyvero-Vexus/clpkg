@@ -1,0 +1,1 @@
+{"scenario":"S5","status":"pass","deterministic_command":"sbcl --script packages/clpkg-shell/scripts/verify-shell-gates.lisp"}
