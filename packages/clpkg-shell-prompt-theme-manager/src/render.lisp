@@ -1,0 +1,16 @@
+(in-package #:clpkg-shell-prompt-theme-manager)
+
+(defun render-static-prompt (theme ctx)
+  (declare (type prompt-theme theme)
+           (type prompt-context ctx)
+           (optimize (safety 3)))
+  (let* ((left (format nil (pt-left-format theme) (pc-cwd ctx)))
+         (right (format nil (pt-right-format theme) (pc-branch ctx)))
+         (full (format nil "~A~A~A" left (pt-separator theme) right)))
+    (make-rendered-prompt :left left :right right :full full)))
+
+(defun render-prompt-line (theme ctx)
+  (declare (type prompt-theme theme)
+           (type prompt-context ctx)
+           (optimize (safety 3)))
+  (rp-full (render-static-prompt theme ctx)))

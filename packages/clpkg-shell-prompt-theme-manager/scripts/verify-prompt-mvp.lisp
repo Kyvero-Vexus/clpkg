@@ -1,0 +1,11 @@
+(load "packages/clpkg-shell-prompt-theme-manager/src/package.lisp")
+(load "packages/clpkg-shell-prompt-theme-manager/src/model.lisp")
+(load "packages/clpkg-shell-prompt-theme-manager/src/render.lisp")
+(in-package #:clpkg-shell-prompt-theme-manager)
+
+(let* ((theme (make-prompt-theme :left-format "<~A>" :right-format "{~A}" :separator " | "))
+       (ctx (make-prompt-context :cwd "/tmp" :branch "feature/x"))
+       (line (render-prompt-line theme ctx)))
+  (unless (string= line "</tmp> | {feature/x}")
+    (error "prompt mvp verification failed: ~A" line))
+  (format t "PASS prompt theme static rendering mvp~%"))
