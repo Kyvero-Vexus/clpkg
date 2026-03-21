@@ -1,0 +1,1 @@
+{"scenario":"S3","status":"pass","deterministic_command":"sbcl --script packages/clpkg-tui-system-monitor/scripts/verify-runtime-report.lisp"}
