@@ -1,0 +1,1 @@
+{"scenario":"S1","status":"pass","deterministic_command":"sbcl --script packages/clpkg-tui-git-client/scripts/verify-security-perf-release.lisp"}
