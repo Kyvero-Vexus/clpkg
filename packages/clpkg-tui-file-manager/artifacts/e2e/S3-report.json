@@ -1,0 +1,1 @@
+{"scenario":"S3","status":"pass","deterministic_command":"sbcl --script packages/clpkg-tui-file-manager/scripts/verify-security-perf-release.lisp"}
