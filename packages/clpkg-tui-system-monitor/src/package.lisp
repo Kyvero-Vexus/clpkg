@@ -52,4 +52,9 @@
    #:rframe-alerts
    #:rframe-lines
    #:build-render-frame
-   #:render-loop))
+   #:render-loop
+   #:monitor-report->json
+   #:write-monitor-report
+   #:snapshot->sample
+   #:run-runtime-step
+   #:run-monitor-runtime))

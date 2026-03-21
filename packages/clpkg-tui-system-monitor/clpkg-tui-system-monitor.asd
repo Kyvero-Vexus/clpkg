@@ -10,4 +10,6 @@
    (:file "src/normalization")
    (:file "src/pane-layout")
    (:file "src/alerts")
-   (:file "src/render-loop")))
+   (:file "src/render-loop")
+   (:file "src/report")
+   (:file "src/runtime")))

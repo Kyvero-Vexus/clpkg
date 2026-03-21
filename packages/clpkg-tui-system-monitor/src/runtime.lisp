@@ -1,0 +1,38 @@
+(in-package #:clpkg-tui-system-monitor)
+
+(declaim
+ (ftype (function (monitor-snapshot) (values list &optional)) snapshot->sample)
+ (ftype (function (monitor-snapshot list list) (values list &optional)) run-runtime-step)
+ (ftype (function (monitor-snapshot list list string) (values string &optional)) run-monitor-runtime))
+
+(defun snapshot->sample (snapshot)
+  (declare (type monitor-snapshot snapshot)
+           (optimize (safety 3)))
+  (list (cons "cpu-percent" (msnap-cpu-percent snapshot))
+        (cons "mem-percent" (msnap-mem-percent snapshot))
+        (cons "proc-count" (msnap-proc-count snapshot))
+        (cons "net-rx-bytes" (msnap-net-rx-bytes snapshot))
+        (cons "net-tx-bytes" (msnap-net-tx-bytes snapshot))))
+
+(defun %alert->string (hit)
+  (declare (type alert-hit hit))
+  (format nil "~A:triggered" (hit-alert-id hit)))
+
+(defun run-runtime-step (snapshot pane-specs alerts)
+  (declare (type monitor-snapshot snapshot)
+           (type list pane-specs alerts)
+           (optimize (safety 3)))
+  (let* ((frame (build-render-frame 0 pane-specs nil))
+         (hits (evaluate-threshold-alerts alerts (snapshot->sample snapshot)))
+         (pane-order (rframe-pane-order frame))
+         (alert-lines (mapcar #'%alert->string hits)))
+    (list pane-order alert-lines)))
+
+(defun run-monitor-runtime (snapshot pane-specs alerts output-path)
+  (declare (type monitor-snapshot snapshot)
+           (type list pane-specs alerts)
+           (type string output-path)
+           (optimize (safety 3)))
+  (destructuring-bind (pane-order alert-lines)
+      (run-runtime-step snapshot pane-specs alerts)
+    (write-monitor-report snapshot pane-order alert-lines output-path)))
