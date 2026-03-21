@@ -1,0 +1,37 @@
+;;; verify-render-alert-determinism.lisp
+(require :asdf)
+(asdf:load-asd #P"/home/slime/projects/clpkg/packages/clpkg-tui-system-monitor/clpkg-tui-system-monitor.asd")
+(asdf:load-system :clpkg-tui-system-monitor)
+
+(defun assert-true (condition fmt &rest args)
+  (unless condition
+    (error (apply #'format nil fmt args))))
+
+(let* ((panes-a (list (clpkg-tui-system-monitor:make-pane-spec :id "net" :row 1 :column 0 :width 40 :height 5 :weight 0)
+                      (clpkg-tui-system-monitor:make-pane-spec :id "cpu" :row 0 :column 0 :width 40 :height 5 :weight 0)
+                      (clpkg-tui-system-monitor:make-pane-spec :id "mem" :row 0 :column 40 :width 40 :height 5 :weight 0)))
+       (panes-b (reverse panes-a))
+       (order-a (mapcar #'clpkg-tui-system-monitor:pane-id
+                        (clpkg-tui-system-monitor:deterministic-pane-order panes-a)))
+       (order-b (mapcar #'clpkg-tui-system-monitor:pane-id
+                        (clpkg-tui-system-monitor:deterministic-pane-order panes-b)))
+       (sample '(("cpu.idle" . 4.0d0)
+                 ("cpu.used" . 96.0d0)
+                 ("mem.used" . 89.0d0)))
+       (alerts-a (list (clpkg-tui-system-monitor:make-threshold-alert :id "a-mem" :metric-key "mem.used" :operator :>= :threshold 85.0d0 :severity :warn :message "Memory high")
+                       (clpkg-tui-system-monitor:make-threshold-alert :id "b-cpu" :metric-key "cpu.used" :operator :>= :threshold 90.0d0 :severity :crit :message "CPU high")))
+       (alerts-b (reverse alerts-a))
+       (hits-a (clpkg-tui-system-monitor:evaluate-threshold-alerts alerts-a sample))
+       (hits-b (clpkg-tui-system-monitor:evaluate-threshold-alerts alerts-b sample))
+       (hit-ids-a (mapcar #'clpkg-tui-system-monitor:hit-alert-id hits-a))
+       (hit-ids-b (mapcar #'clpkg-tui-system-monitor:hit-alert-id hits-b)))
+  (assert-true (equal order-a order-b)
+               "Pane ordering is not deterministic.~%A=~S~%B=~S" order-a order-b)
+  (assert-true (equal order-a '("cpu" "mem" "net"))
+               "Pane ordering changed unexpectedly: ~S" order-a)
+  (assert-true (equal hit-ids-a hit-ids-b)
+               "Alert evaluation ordering is not stable.~%A=~S~%B=~S" hit-ids-a hit-ids-b)
+  (assert-true (equal hit-ids-a '("a-mem" "b-cpu"))
+               "Unexpected alert hit order: ~S" hit-ids-a)
+  (format t "PASS pane-order + alert-evaluation determinism checks~%")
+  (sb-ext:exit :code 0))

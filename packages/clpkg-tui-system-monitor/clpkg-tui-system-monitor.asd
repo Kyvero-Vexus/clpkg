@@ -7,4 +7,7 @@
   ((:file "src/package")
    (:file "src/types")
    (:file "src/collector-interfaces")
-   (:file "src/normalization")))
+   (:file "src/normalization")
+   (:file "src/pane-layout")
+   (:file "src/alerts")
+   (:file "src/render-loop")))

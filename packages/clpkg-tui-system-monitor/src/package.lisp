@@ -20,4 +20,36 @@
    #:normalize-metric-value
    #:flatten-metric-tree
    #:normalize-domain-sample
-   #:normalize-collector-samples))
+   #:normalize-collector-samples
+   #:pane-spec
+   #:pane-spec-p
+   #:make-pane-spec
+   #:pane-id
+   #:pane-row
+   #:pane-column
+   #:pane-width
+   #:pane-height
+   #:pane-weight
+   #:deterministic-pane-order
+   #:threshold-alert
+   #:threshold-alert-p
+   #:make-threshold-alert
+   #:alert-hit
+   #:alert-hit-p
+   #:hit-alert-id
+   #:hit-metric-key
+   #:hit-actual-value
+   #:hit-threshold
+   #:hit-severity
+   #:hit-message
+   #:evaluate-threshold-alert
+   #:evaluate-threshold-alerts
+   #:render-frame
+   #:render-frame-p
+   #:make-render-frame
+   #:rframe-tick
+   #:rframe-pane-order
+   #:rframe-alerts
+   #:rframe-lines
+   #:build-render-frame
+   #:render-loop))
