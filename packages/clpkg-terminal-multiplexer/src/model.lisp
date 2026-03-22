@@ -1,0 +1,35 @@
+(in-package #:clpkg-terminal-multiplexer)
+
+(deftype session-state () '(member :new :active :detached :closed :error))
+
+(defstruct (mux-pane (:conc-name mp-))
+  (pane-id "" :type string)
+  (index 0 :type integer)
+  (command "" :type string)
+  (cwd "." :type string))
+
+(defstruct (mux-window (:conc-name mw-))
+  (window-id "" :type string)
+  (index 0 :type integer)
+  (panes '() :type list))
+
+(defstruct (mux-session (:conc-name ms-))
+  (session-id "" :type string)
+  (state :new :type session-state)
+  (windows '() :type list)
+  (focused-window-id "" :type string)
+  (focused-pane-id "" :type string))
+
+(defun pane-order-deterministic (panes)
+  (declare (type list panes) (optimize (safety 3)))
+  (sort (copy-list panes)
+        (lambda (a b)
+          (declare (type mux-pane a b))
+          (< (mp-index a) (mp-index b)))))
+
+(defun window-order-deterministic (windows)
+  (declare (type list windows) (optimize (safety 3)))
+  (sort (copy-list windows)
+        (lambda (a b)
+          (declare (type mux-window a b))
+          (< (mw-index a) (mw-index b)))))
